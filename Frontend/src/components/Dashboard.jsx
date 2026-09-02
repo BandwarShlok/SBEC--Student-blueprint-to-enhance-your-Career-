@@ -206,6 +206,13 @@ function Dashboard() {
 
   const stats = dashboardData?.stats || {};
 
+  const plannerStats = stats.planner || {
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    completionPercentage: 0,
+  };
+
   const subjects = Array.isArray(dashboardData?.subjects)
     ? dashboardData.subjects
     : [];
@@ -327,7 +334,7 @@ function Dashboard() {
         <StatCard
           icon={<FaClipboardCheck />}
           title="Pending Items"
-          value={pendingItems.length}
+          value={plannerStats.pendingTasks}
           subtitle="Need your attention"
           iconBackground="#7C3AED"
         />
@@ -359,6 +366,76 @@ function Dashboard() {
           subtitle="Exams scheduled"
           iconBackground="#D97706"
         />
+      </div>
+
+      {/* ======================================
+          DAILY PLANNER SUMMARY
+      ====================================== */}
+
+      <div
+        className="dashboard-card"
+        style={{
+          ...styles.card,
+          marginBottom: "25px",
+        }}
+      >
+        <div style={styles.sectionHeader}>
+          <div>
+            <h2 style={styles.sectionTitle}>Today's Daily Planner</h2>
+
+            <p style={styles.sectionSubtitle}>
+              Track your tasks and today's progress.
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate("/daily-planner")}
+            className="dashboard-view-button"
+            style={styles.viewButton}
+          >
+            View Planner
+            <FaArrowRight />
+          </button>
+        </div>
+
+        <div className="planner-stats-grid" style={styles.plannerStatsGrid}>
+          <div style={styles.plannerStat}>
+            <span style={styles.plannerStatLabel}>Total Tasks</span>
+            <strong style={styles.plannerStatValue}>
+              {plannerStats.totalTasks}
+            </strong>
+          </div>
+
+          <div style={styles.plannerStat}>
+            <span style={styles.plannerStatLabel}>Completed</span>
+            <strong style={styles.plannerStatValue}>
+              {plannerStats.completedTasks}
+            </strong>
+          </div>
+
+          <div style={styles.plannerStat}>
+            <span style={styles.plannerStatLabel}>Pending</span>
+            <strong style={styles.plannerStatValue}>
+              {plannerStats.pendingTasks}
+            </strong>
+          </div>
+
+          <div style={styles.plannerStat}>
+            <span style={styles.plannerStatLabel}>Completion</span>
+            <strong style={styles.plannerStatValue}>
+              {plannerStats.completionPercentage}%
+            </strong>
+          </div>
+        </div>
+
+        <div style={styles.plannerProgressBackground}>
+          <div
+            style={{
+              ...styles.plannerProgressFill,
+              width: `${Math.min(100, Math.max(0, plannerStats.completionPercentage))}%`,
+            }}
+          />
+        </div>
       </div>
 
       {/* ======================================
@@ -764,6 +841,13 @@ function Dashboard() {
             }
 
 
+            /* Daily Planner */
+
+            .planner-stats-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 10px !important;
+            }
+
             /* Main */
 
             .dashboard-main-grid {
@@ -885,6 +969,10 @@ function Dashboard() {
 
             .dashboard-card {
               padding: 15px !important;
+            }
+
+            .planner-stats-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             }
 
 
@@ -1231,6 +1319,51 @@ const styles = {
     fontWeight: "600",
 
     whiteSpace: "nowrap",
+  },
+
+  plannerStatsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "12px",
+    marginBottom: "18px",
+  },
+
+  plannerStat: {
+    background: "#1E293B",
+    border: "1px solid #334155",
+    borderRadius: "12px",
+    padding: "15px",
+    minWidth: 0,
+    boxSizing: "border-box",
+  },
+
+  plannerStatLabel: {
+    display: "block",
+    color: "#94A3B8",
+    fontSize: "12px",
+    marginBottom: "7px",
+  },
+
+  plannerStatValue: {
+    display: "block",
+    color: "#FFFFFF",
+    fontSize: "22px",
+    fontWeight: "700",
+  },
+
+  plannerProgressBackground: {
+    width: "100%",
+    height: "8px",
+    background: "#334155",
+    borderRadius: "10px",
+    overflow: "hidden",
+  },
+
+  plannerProgressFill: {
+    height: "100%",
+    background: "#8B5CF6",
+    borderRadius: "10px",
+    transition: "width 0.4s ease",
   },
 
   subjectList: {

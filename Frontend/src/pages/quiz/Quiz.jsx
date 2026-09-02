@@ -1,458 +1,554 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaClipboardCheck,
   FaArrowRight,
   FaArrowLeft,
   FaCheckCircle,
-  FaTimesCircle,
   FaRedo,
   FaTrophy,
+  FaSyncAlt,
+  FaExclamationCircle,
 } from "react-icons/fa";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
-/*
-  Temporary quiz data.
+import API_URL from "../../config/api";
 
-  Later these questions will come
-  from the backend/database.
-*/
+const API_ROOT = String(API_URL || "").replace(/\/+$/, "");
+const QUIZ_API = API_ROOT.endsWith("/api")
+  ? `${API_ROOT}/quiz`
+  : `${API_ROOT}/api/quiz`;
 
-const quizData = {
-  "Artificial Intelligence": [
-    {
-      id: 1,
-      question:
-        "Which of the following is a branch of Artificial Intelligence?",
-      options: [
-        "Machine Learning",
-        "Web Designing",
-        "Database Management",
-        "Operating System",
-      ],
-      answer: 0,
-      explanation:
-        "Machine Learning is a major branch of Artificial Intelligence.",
-    },
-
-    {
-      id: 2,
-      question:
-        "Which search algorithm uses a queue?",
-      options: [
-        "DFS",
-        "BFS",
-        "DLS",
-        "Hill Climbing",
-      ],
-      answer: 1,
-      explanation:
-        "Breadth First Search uses a queue to explore nodes level by level.",
-    },
-
-    {
-      id: 3,
-      question:
-        "What does an intelligent agent perceive?",
-      options: [
-        "Only commands",
-        "Its environment",
-        "Only databases",
-        "Only users",
-      ],
-      answer: 1,
-      explanation:
-        "An intelligent agent perceives its environment through sensors.",
-    },
-
-    {
-      id: 4,
-      question:
-        "Which algorithm is commonly associated with heuristic search?",
-      options: [
-        "A*",
-        "Bubble Sort",
-        "Binary Search",
-        "Linear Search",
-      ],
-      answer: 0,
-      explanation:
-        "A* uses heuristic information to guide the search.",
-    },
-
-    {
-      id: 5,
-      question:
-        "Which is an example of an AI application?",
-      options: [
-        "Recommendation System",
-        "Calculator",
-        "Text Editor",
-        "File Explorer",
-      ],
-      answer: 0,
-      explanation:
-        "Recommendation systems commonly use AI and machine learning.",
-    },
-  ],
-
-  "Computer Networks": [
-    {
-      id: 1,
-      question:
-        "How many layers are present in the OSI model?",
-      options: ["5", "6", "7", "8"],
-      answer: 2,
-      explanation:
-        "The OSI reference model contains seven layers.",
-    },
-
-    {
-      id: 2,
-      question:
-        "Which layer is responsible for routing?",
-      options: [
-        "Physical",
-        "Data Link",
-        "Network",
-        "Application",
-      ],
-      answer: 2,
-      explanation:
-        "The Network layer handles logical addressing and routing.",
-    },
-
-    {
-      id: 3,
-      question:
-        "Which protocol is connection-oriented?",
-      options: [
-        "UDP",
-        "TCP",
-        "IP",
-        "ARP",
-      ],
-      answer: 1,
-      explanation:
-        "TCP is a connection-oriented transport protocol.",
-    },
-
-    {
-      id: 4,
-      question:
-        "What does LAN stand for?",
-      options: [
-        "Large Area Network",
-        "Local Area Network",
-        "Logical Access Network",
-        "Linked Area Node",
-      ],
-      answer: 1,
-      explanation:
-        "LAN stands for Local Area Network.",
-    },
-
-    {
-      id: 5,
-      question:
-        "Which device connects different networks?",
-      options: [
-        "Router",
-        "Keyboard",
-        "Monitor",
-        "Printer",
-      ],
-      answer: 0,
-      explanation:
-        "A router forwards packets between different networks.",
-    },
-  ],
-
-  "Software Engineering": [
-    {
-      id: 1,
-      question:
-        "Which model follows a sequential development approach?",
-      options: [
-        "Waterfall",
-        "Agile",
-        "Prototype",
-        "Spiral",
-      ],
-      answer: 0,
-      explanation:
-        "The Waterfall model follows sequential development phases.",
-    },
-
-    {
-      id: 2,
-      question:
-        "What is the first major activity in software development?",
-      options: [
-        "Testing",
-        "Requirement Analysis",
-        "Maintenance",
-        "Deployment",
-      ],
-      answer: 1,
-      explanation:
-        "Understanding and documenting requirements is an early major activity.",
-    },
-
-    {
-      id: 3,
-      question:
-        "Which model emphasizes iterative development?",
-      options: [
-        "Waterfall",
-        "Agile",
-        "Big Bang",
-        "Linear",
-      ],
-      answer: 1,
-      explanation:
-        "Agile development uses iterative and incremental development.",
-    },
-
-    {
-      id: 4,
-      question:
-        "Which activity checks whether software works correctly?",
-      options: [
-        "Testing",
-        "Planning",
-        "Requirement Gathering",
-        "Design",
-      ],
-      answer: 0,
-      explanation:
-        "Testing is used to identify defects and verify software behavior.",
-    },
-
-    {
-      id: 5,
-      question:
-        "Which is a software quality attribute?",
-      options: [
-        "Maintainability",
-        "Keyboard",
-        "Monitor",
-        "Cable",
-      ],
-      answer: 0,
-      explanation:
-        "Maintainability is an important software quality attribute.",
-    },
-  ],
-
-  "Internet of Things": [
-    {
-      id: 1,
-      question:
-        "What does IoT stand for?",
-      options: [
-        "Internet of Technology",
-        "Internet of Things",
-        "Information of Things",
-        "Internet of Tools",
-      ],
-      answer: 1,
-      explanation:
-        "IoT stands for Internet of Things.",
-    },
-
-    {
-      id: 2,
-      question:
-        "Which component can sense physical conditions?",
-      options: [
-        "Sensor",
-        "Compiler",
-        "Browser",
-        "Database",
-      ],
-      answer: 0,
-      explanation:
-        "Sensors detect physical conditions such as temperature or motion.",
-    },
-
-    {
-      id: 3,
-      question:
-        "Which is an IoT application?",
-      options: [
-        "Smart Home",
-        "Text Editor",
-        "Calculator",
-        "Word Processor",
-      ],
-      answer: 0,
-      explanation:
-        "Smart homes are a common application of IoT.",
-    },
-
-    {
-      id: 4,
-      question:
-        "What allows IoT devices to communicate?",
-      options: [
-        "Communication Network",
-        "Keyboard",
-        "Monitor",
-        "Mouse",
-      ],
-      answer: 0,
-      explanation:
-        "IoT devices communicate using wired or wireless networks.",
-    },
-
-    {
-      id: 5,
-      question:
-        "Which is an important IoT concern?",
-      options: [
-        "Security",
-        "Screen brightness",
-        "Keyboard layout",
-        "Font size",
-      ],
-      answer: 0,
-      explanation:
-        "Security is a major concern because IoT devices are connected to networks.",
-    },
-  ],
+const SUBJECT_ID_MAP = {
+  1: "Artificial Intelligence",
+  2: "Computer Networks",
+  3: "Software Engineering",
+  4: "Internet of Things",
 };
+
+const getToken = () =>
+  localStorage.getItem("sbec_token") ||
+  localStorage.getItem("token");
+
+const getStudentHeaders = (includeJson = false) => {
+  const token = getToken();
+
+  return {
+    ...(includeJson
+      ? { "Content-Type": "application/json" }
+      : {}),
+    ...(token
+      ? { Authorization: `Bearer ${token}` }
+      : {}),
+  };
+};
+
+const readApiResponse = async (response) => {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      message: text || "Invalid server response.",
+    };
+  }
+};
+
+const normalizeQuestion = (item) => ({
+  id: item._id || item.id,
+  question: item.question || "",
+  subject: item.subject || "",
+  unit: item.unit || "",
+  options: Array.isArray(item.options)
+    ? item.options
+    : [
+        item.optionA || "",
+        item.optionB || "",
+        item.optionC || "",
+        item.optionD || "",
+      ],
+});
 
 function Quiz() {
   const [searchParams] = useSearchParams();
 
-  const subjectId =
-    searchParams.get("subject");
-
-  const subjectMap = {
-    1: "Artificial Intelligence",
-    2: "Computer Networks",
-    3: "Software Engineering",
-    4: "Internet of Things",
-  };
+  const subjectParam = searchParams.get("subject");
 
   const initialSubject =
-    subjectMap[subjectId] ||
-    "Artificial Intelligence";
+    SUBJECT_ID_MAP[subjectParam] ||
+    (subjectParam ? subjectParam : "");
 
+  const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] =
     useState(initialSubject);
 
-  const [started, setStarted] =
-    useState(false);
+  const [questions, setQuestions] = useState([]);
+  const [started, setStarted] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
 
-  const [currentQuestion, setCurrentQuestion] =
-    useState(0);
+  const [result, setResult] = useState(null);
 
-  const [answers, setAnswers] =
-    useState({});
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const [submitted, setSubmitted] =
-    useState(false);
+  // ============================================================
+  // FETCH SUBJECTS FROM BACKEND
+  // ============================================================
 
-  const questions =
-    quizData[selectedSubject];
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSubjects = async () => {
+      try {
+        setLoadingSubjects(true);
+        setError("");
+
+        const response = await fetch(`${QUIZ_API}/subjects`, {
+          method: "GET",
+          headers: getStudentHeaders(),
+        });
+
+        const data = await readApiResponse(response);
+
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem("sbec_token");
+          localStorage.removeItem("sbec_user");
+          window.location.href = "/login";
+          return;
+        }
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message || "Failed to load quiz subjects."
+          );
+        }
+
+        const list = Array.isArray(data.subjects)
+          ? data.subjects
+          : [];
+
+        if (cancelled) {
+          return;
+        }
+
+        setSubjects(list);
+
+        if (list.length > 0) {
+          setSelectedSubject((previous) => {
+            if (previous && list.includes(previous)) {
+              return previous;
+            }
+
+            return list[0];
+          });
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("QUIZ SUBJECT ERROR:", err);
+        setError(
+          err.message || "Unable to load quiz subjects."
+        );
+      } finally {
+        if (!cancelled) {
+          setLoadingSubjects(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(loadSubjects, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // ============================================================
+  // FETCH QUESTIONS FROM BACKEND
+  // ============================================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQuestions = async () => {
+      if (!selectedSubject) {
+        setQuestions([]);
+        return;
+      }
+
+      try {
+        setLoadingQuestions(true);
+        setError("");
+
+        const response = await fetch(
+          `${QUIZ_API}?subject=${encodeURIComponent(
+            selectedSubject
+          )}&limit=5`,
+          {
+            method: "GET",
+            headers: getStudentHeaders(),
+          }
+        );
+
+        const data = await readApiResponse(response);
+
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem("sbec_token");
+          localStorage.removeItem("sbec_user");
+          window.location.href = "/login";
+          return;
+        }
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message || "Failed to load quiz questions."
+          );
+        }
+
+        const list = Array.isArray(data.questions)
+          ? data.questions.map(normalizeQuestion)
+          : [];
+
+        if (cancelled) {
+          return;
+        }
+
+        setQuestions(list);
+        setStarted(false);
+        setCurrentQuestion(0);
+        setAnswers({});
+        setSubmitted(false);
+        setResult(null);
+
+        if (list.length === 0) {
+          setError(
+            `No quiz questions are available for ${selectedSubject}.`
+          );
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("QUIZ QUESTIONS ERROR:", err);
+        setQuestions([]);
+        setError(
+          err.message || "Unable to load quiz questions."
+        );
+      } finally {
+        if (!cancelled) {
+          setLoadingQuestions(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(loadQuestions, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedSubject]);
+
+  // ============================================================
+  // SAFE QUESTION DATA
+  // ============================================================
+
+  const safeQuestions = useMemo(
+    () =>
+      questions.filter(
+        (item) =>
+          item &&
+          item.id &&
+          item.question &&
+          Array.isArray(item.options) &&
+          item.options.length === 4
+      ),
+    [questions]
+  );
 
   const selectedAnswer =
-    answers[currentQuestion];
+    answers[safeQuestions[currentQuestion]?.id];
+
+  // ============================================================
+  // START QUIZ
+  // ============================================================
 
   const handleStart = () => {
+    if (safeQuestions.length === 0) {
+      toast.error("No questions available for this subject.");
+      return;
+    }
+
     setStarted(true);
     setCurrentQuestion(0);
     setAnswers({});
     setSubmitted(false);
+    setResult(null);
   };
+
+  // ============================================================
+  // SELECT ANSWER
+  // ============================================================
 
   const handleAnswer = (answerIndex) => {
-    if (submitted) return;
-
-    setAnswers((previous) => ({
-      ...previous,
-      [currentQuestion]: answerIndex,
-    }));
-  };
-
-  const handleNext = () => {
-    if (
-      selectedAnswer === undefined
-    ) {
-      toast.error(
-        "Please select an answer first."
-      );
+    if (submitted || submitting) {
       return;
     }
 
-    if (
-      currentQuestion <
-      questions.length - 1
-    ) {
-      setCurrentQuestion(
-        currentQuestion + 1
-      );
+    const questionId =
+      safeQuestions[currentQuestion]?.id;
+
+    if (!questionId) {
+      return;
+    }
+
+    setAnswers((previous) => ({
+      ...previous,
+      [questionId]: answerIndex,
+    }));
+  };
+
+  // ============================================================
+  // NEXT
+  // ============================================================
+
+  const handleNext = () => {
+    if (selectedAnswer === undefined) {
+      toast.error("Please select an answer first.");
+      return;
+    }
+
+    if (currentQuestion < safeQuestions.length - 1) {
+      setCurrentQuestion((previous) => previous + 1);
     }
   };
+
+  // ============================================================
+  // PREVIOUS
+  // ============================================================
 
   const handlePrevious = () => {
     if (currentQuestion > 0) {
-      setCurrentQuestion(
-        currentQuestion - 1
-      );
+      setCurrentQuestion((previous) => previous - 1);
     }
   };
 
-  const handleSubmit = () => {
-    const answeredCount =
-      Object.keys(answers).length;
+  // ============================================================
+  // SUBMIT TO BACKEND
+  // ============================================================
 
-    if (
-      answeredCount <
-      questions.length
-    ) {
+  const handleSubmit = async () => {
+    const answeredCount = Object.keys(answers).length;
+
+    if (answeredCount < safeQuestions.length) {
       toast.error(
         "Please answer all questions before submitting."
       );
       return;
     }
 
-    setSubmitted(true);
+    const token = getToken();
 
-    toast.success(
-      "Quiz submitted successfully!"
-    );
-  };
+    if (!token) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
 
-  const calculateScore = () => {
-    return questions.reduce(
-      (score, question, index) => {
-        return (
-          score +
-          (answers[index] ===
-          question.answer
-            ? 1
-            : 0)
+    try {
+      setSubmitting(true);
+      setError("");
+
+      const payload = {
+        subject: selectedSubject,
+        answers: safeQuestions.map((question) => ({
+          questionId: question.id,
+          answer: String.fromCharCode(
+            65 + answers[question.id]
+          ),
+        })),
+      };
+
+      const response = await fetch(`${QUIZ_API}/submit`, {
+        method: "POST",
+        headers: getStudentHeaders(true),
+        body: JSON.stringify(payload),
+      });
+
+      const data = await readApiResponse(response);
+
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem("sbec_token");
+        localStorage.removeItem("sbec_user");
+
+        toast.error(
+          "Session expired. Please login again."
         );
-      },
-      0
-    );
+
+        window.location.href = "/login";
+        return;
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to submit quiz."
+        );
+      }
+
+      setResult({
+        score: Number(data.result?.score || 0),
+        correct: Number(data.result?.correct || 0),
+        wrong: Number(data.result?.wrong || 0),
+        total: Number(
+          data.result?.total || safeQuestions.length
+        ),
+        percentage: Number(
+          data.result?.percentage || 0
+        ),
+      });
+
+      setSubmitted(true);
+
+      toast.success("Quiz submitted successfully!");
+    } catch (err) {
+      console.error("QUIZ SUBMIT ERROR:", err);
+
+      setError(
+        err.message || "Unable to submit quiz."
+      );
+
+      toast.error(
+        err.message || "Unable to submit quiz."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const score = calculateScore();
-
-  const percentage = Math.round(
-    (score / questions.length) * 100
-  );
+  // ============================================================
+  // RESTART
+  // ============================================================
 
   const restartQuiz = () => {
     setStarted(false);
     setCurrentQuestion(0);
     setAnswers({});
     setSubmitted(false);
+    setResult(null);
+    setError("");
   };
+
+  const score = result?.correct || 0;
+  const total = result?.total || safeQuestions.length || 0;
+
+  const percentage =
+    result?.percentage ??
+    (total > 0
+      ? Math.round((score / total) * 100)
+      : 0);
+
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  if (loadingSubjects || loadingQuestions) {
+    return (
+      <div style={styles.loadingPage}>
+        <div style={styles.loadingSpinner}>
+          <FaSyncAlt />
+        </div>
+
+        <h2 style={styles.loadingTitle}>
+          Loading Quiz...
+        </h2>
+
+        <p style={styles.loadingText}>
+          Getting questions from the server.
+        </p>
+
+        <style>
+          {`
+            @keyframes quizSpin {
+              from {
+                transform: rotate(0deg);
+              }
+
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          `}
+        </style>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // ERROR / EMPTY
+  // ============================================================
+
+  if (!selectedSubject || safeQuestions.length === 0) {
+    return (
+      <div style={styles.errorPage}>
+        <FaExclamationCircle style={styles.errorIcon} />
+
+        <h2 style={styles.errorTitle}>
+          {error
+            ? "Unable to Load Quiz"
+            : "No Quiz Questions"}
+        </h2>
+
+        <p style={styles.errorText}>
+          {error ||
+            "There are no quiz questions available yet."}
+        </p>
+
+        {subjects.length > 0 && (
+          <select
+            value={selectedSubject}
+            onChange={(event) =>
+              setSelectedSubject(event.target.value)
+            }
+            style={{
+              ...styles.subjectSelect,
+              maxWidth: "350px",
+              marginTop: "10px",
+            }}
+          >
+            {subjects.map((subject) => (
+              <option key={subject} value={subject}>
+                {subject}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <button
+          onClick={() => window.location.reload()}
+          style={styles.retryButton}
+        >
+          <FaSyncAlt />
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // START PAGE
+  // ============================================================
 
   if (!started) {
     return (
@@ -467,8 +563,8 @@ function Quiz() {
           </h1>
 
           <p style={styles.startDescription}>
-            Test your understanding of your
-            subjects with short practice quizzes.
+            Test your understanding of your subjects with
+            short practice quizzes.
           </p>
 
           <div style={styles.subjectSelection}>
@@ -478,20 +574,13 @@ function Quiz() {
 
             <select
               value={selectedSubject}
-              onChange={(e) =>
-                setSelectedSubject(
-                  e.target.value
-                )
+              onChange={(event) =>
+                setSelectedSubject(event.target.value)
               }
               style={styles.subjectSelect}
             >
-              {Object.keys(
-                quizData
-              ).map((subject) => (
-                <option
-                  key={subject}
-                  value={subject}
-                >
+              {subjects.map((subject) => (
+                <option key={subject} value={subject}>
                   {subject}
                 </option>
               ))}
@@ -500,22 +589,17 @@ function Quiz() {
 
           <div style={styles.quizInfo}>
             <div>
-              <strong>
-                {questions.length}
-              </strong>
-
+              <strong>{safeQuestions.length}</strong>
               <span>Questions</span>
             </div>
 
             <div>
               <strong>MCQ</strong>
-
               <span>Format</span>
             </div>
 
             <div>
               <strong>100%</strong>
-
               <span>Evaluation</span>
             </div>
           </div>
@@ -531,6 +615,10 @@ function Quiz() {
       </div>
     );
   }
+
+  // ============================================================
+  // RESULT
+  // ============================================================
 
   if (submitted) {
     return (
@@ -548,34 +636,36 @@ function Quiz() {
             {selectedSubject}
           </p>
 
-          <div style={styles.scoreCircle}>
-            <strong>{percentage}%</strong>
-
-            <span>Score</span>
+          <div
+            style={{
+              ...styles.scoreCircle,
+              background: `conic-gradient(
+                #8B5CF6 ${percentage * 3.6}deg,
+                #1E293B 0deg
+              )`,
+            }}
+          >
+            <div style={styles.resultScoreInner}>
+              <strong>{percentage}%</strong>
+              <span>Score</span>
+            </div>
           </div>
 
           <div style={styles.scoreDetails}>
             <div>
-              <strong>
-                {score}
-              </strong>
-
+              <strong>{score}</strong>
               <span>Correct</span>
             </div>
 
             <div>
               <strong>
-                {questions.length - score}
+                {result?.wrong ?? total - score}
               </strong>
-
               <span>Wrong</span>
             </div>
 
             <div>
-              <strong>
-                {questions.length}
-              </strong>
-
+              <strong>{total}</strong>
               <span>Total</span>
             </div>
           </div>
@@ -594,7 +684,6 @@ function Quiz() {
                 setStarted(true);
                 setSubmitted(false);
                 setCurrentQuestion(0);
-                setAnswers({});
               }}
               style={styles.reviewButton}
             >
@@ -606,12 +695,14 @@ function Quiz() {
     );
   }
 
-  const question =
-    questions[currentQuestion];
+  // ============================================================
+  // QUESTION
+  // ============================================================
+
+  const question = safeQuestions[currentQuestion];
 
   const isLastQuestion =
-    currentQuestion ===
-    questions.length - 1;
+    currentQuestion === safeQuestions.length - 1;
 
   return (
     <div>
@@ -619,9 +710,7 @@ function Quiz() {
 
       <div style={styles.quizHeader}>
         <div>
-          <p style={styles.quizLabel}>
-            QUIZ
-          </p>
+          <p style={styles.quizLabel}>QUIZ</p>
 
           <h1 style={styles.quizTitle}>
             {selectedSubject}
@@ -629,8 +718,7 @@ function Quiz() {
         </div>
 
         <div style={styles.questionCounter}>
-          {currentQuestion + 1} /{" "}
-          {questions.length}
+          {currentQuestion + 1} / {safeQuestions.length}
         </div>
       </div>
 
@@ -642,7 +730,7 @@ function Quiz() {
             ...styles.progressFill,
             width: `${
               ((currentQuestion + 1) /
-                questions.length) *
+                safeQuestions.length) *
               100
             }%`,
           }}
@@ -663,51 +751,43 @@ function Quiz() {
         {/* Options */}
 
         <div style={styles.options}>
-          {question.options.map(
-            (option, index) => {
-              const selected =
-                selectedAnswer === index;
+          {question.options.map((option, index) => {
+            const selected =
+              selectedAnswer === index;
 
-              return (
-                <button
-                  key={option}
-                  onClick={() =>
-                    handleAnswer(index)
-                  }
+            return (
+              <button
+                key={`${question.id}-${index}`}
+                onClick={() => handleAnswer(index)}
+                disabled={submitting}
+                style={{
+                  ...styles.option,
+                  border: selected
+                    ? "1px solid #8B5CF6"
+                    : "1px solid #334155",
+                  background: selected
+                    ? "#312E81"
+                    : "#020617",
+                  opacity: submitting ? 0.7 : 1,
+                }}
+              >
+                <span
                   style={{
-                    ...styles.option,
-                    border: selected
-                      ? "1px solid #8B5CF6"
-                      : "1px solid #334155",
+                    ...styles.optionNumber,
                     background: selected
-                      ? "#312E81"
-                      : "#020617",
+                      ? "#8B5CF6"
+                      : "#1E293B",
                   }}
                 >
-                  <span
-                    style={{
-                      ...styles.optionNumber,
-                      background: selected
-                        ? "#8B5CF6"
-                        : "#1E293B",
-                    }}
-                  >
-                    {String.fromCharCode(
-                      65 + index
-                    )}
-                  </span>
+                  {String.fromCharCode(65 + index)}
+                </span>
 
-                  <span
-                    style={
-                      styles.optionText
-                    }
-                  >
-                    {option}
-                  </span>
-                </button>
-              );
-            }
-          )}
+                <span style={styles.optionText}>
+                  {option}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Navigation */}
@@ -715,11 +795,11 @@ function Quiz() {
         <div style={styles.navigation}>
           <button
             onClick={handlePrevious}
-            disabled={currentQuestion === 0}
+            disabled={currentQuestion === 0 || submitting}
             style={{
               ...styles.previousButton,
               opacity:
-                currentQuestion === 0
+                currentQuestion === 0 || submitting
                   ? 0.4
                   : 1,
             }}
@@ -731,6 +811,7 @@ function Quiz() {
           {!isLastQuestion ? (
             <button
               onClick={handleNext}
+              disabled={submitting}
               style={styles.nextButton}
             >
               Next
@@ -739,10 +820,14 @@ function Quiz() {
           ) : (
             <button
               onClick={handleSubmit}
-              style={styles.submitButton}
+              disabled={submitting}
+              style={{
+                ...styles.submitButton,
+                opacity: submitting ? 0.6 : 1,
+              }}
             >
-              Submit Quiz
-              <FaCheckCircle />
+              {submitting ? "Submitting..." : "Submit Quiz"}
+              {!submitting && <FaCheckCircle />}
             </button>
           )}
         </div>
@@ -751,31 +836,77 @@ function Quiz() {
       {/* Question Indicator */}
 
       <div style={styles.indicators}>
-        {questions.map(
-          (item, index) => (
-            <button
-              key={item.id}
-              onClick={() =>
-                setCurrentQuestion(index)
+        {safeQuestions.map((item, index) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              if (!submitting) {
+                setCurrentQuestion(index);
               }
-              style={{
-                ...styles.indicator,
-                background:
-                  answers[index] !==
-                  undefined
-                    ? "#8B5CF6"
-                    : "#1E293B",
-                border:
-                  currentQuestion === index
-                    ? "1px solid #A78BFA"
-                    : "1px solid #334155",
-              }}
-            >
-              {index + 1}
-            </button>
-          )
-        )}
+            }}
+            disabled={submitting}
+            style={{
+              ...styles.indicator,
+              background:
+                answers[item.id] !== undefined
+                  ? "#8B5CF6"
+                  : "#1E293B",
+              border:
+                currentQuestion === index
+                  ? "1px solid #A78BFA"
+                  : "1px solid #334155",
+            }}
+          >
+            {index + 1}
+          </button>
+        ))}
       </div>
+
+      {error && (
+        <p style={styles.inlineError}>
+          {error}
+        </p>
+      )}
+
+      <style>
+        {`
+          @keyframes quizSpin {
+            from {
+              transform: rotate(0deg);
+            }
+
+            to {
+              transform: rotate(360deg);
+            }
+          }
+
+          @media (max-width: 768px) {
+            .quiz-page-container {
+              width: 100%;
+            }
+          }
+
+          @media (max-width: 600px) {
+            .quiz-header {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 18px !important;
+            }
+
+            .quiz-question-card {
+              padding: 20px !important;
+            }
+
+            .quiz-navigation {
+              gap: 10px !important;
+            }
+
+            .quiz-result-actions {
+              flex-direction: column !important;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 }
@@ -1129,6 +1260,95 @@ const styles = {
     padding: "11px",
     cursor: "pointer",
   },
+};
+// Additional styles used by the backend-connected quiz.
+styles.loadingPage = {
+  minHeight: "400px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+};
+
+styles.loadingSpinner = {
+  color: "#8B5CF6",
+  fontSize: "30px",
+  animation: "quizSpin 1s linear infinite",
+};
+
+styles.loadingTitle = {
+  color: "#FFFFFF",
+  margin: "15px 0 5px",
+};
+
+styles.loadingText = {
+  color: "#64748B",
+  margin: 0,
+};
+
+styles.errorPage = {
+  minHeight: "400px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  padding: "20px",
+  boxSizing: "border-box",
+};
+
+styles.errorIcon = {
+  color: "#EF4444",
+  fontSize: "40px",
+};
+
+styles.errorTitle = {
+  color: "#FFFFFF",
+  margin: "15px 0 8px",
+};
+
+styles.errorText = {
+  color: "#64748B",
+  maxWidth: "450px",
+  lineHeight: "1.6",
+};
+
+styles.retryButton = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  background: "#8B5CF6",
+  color: "#FFFFFF",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 18px",
+  cursor: "pointer",
+  fontWeight: "600",
+  marginTop: "12px",
+};
+
+styles.resultScoreInner = {
+  color: "#FFFFFF",
+  width: "112px",
+  height: "112px",
+  borderRadius: "50%",
+  background: "#1E293B",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+styles.resultScoreInnerStrong = {
+  color: "#FFFFFF",
+};
+
+styles.inlineError = {
+  color: "#F87171",
+  textAlign: "center",
+  fontSize: "13px",
+  marginTop: "15px",
 };
 
 export default Quiz;

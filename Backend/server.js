@@ -56,6 +56,8 @@ STUDENT ROUTES
 
 const studentDashboardRoutes = require("./routes/studentDashboardRoutes");
 
+const studentQuizRoutes = require("./routes/studentQuizRoutes");
+
 const studentSubjectRoutes = require("./routes/studentSubjectRoutes");
 
 const dailyPlannerRoutes = require("./routes/dailyPlannerRoutes");
@@ -214,6 +216,12 @@ Student Dashboard
 */
 
 app.use("/api/student/dashboard", studentDashboardRoutes);
+
+/*
+Student Quiz
+*/
+
+app.use("/api/quiz", studentQuizRoutes);
 
 /*
 Student Subjects
