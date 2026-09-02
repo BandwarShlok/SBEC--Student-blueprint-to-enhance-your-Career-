@@ -6,17 +6,17 @@
 
 ## 🚀 About SBEC
 
-**SBEC (Smart Blueprint to Enhance Career)** is a full-stack, AI-powered career development platform created to provide students with a centralized system for improving their technical skills and preparing for their future careers.
+**SBEC (Smart Blueprint to Enhance Career)** is a full-stack, AI-powered career development platform designed to help students manage and improve their complete career journey from a single platform.
 
-Instead of using multiple platforms for learning, task management, resume building, portfolio creation, testing, and interview preparation, SBEC brings these activities together into one platform.
+Students often use multiple applications for learning, task management, resume building, portfolio creation, interview preparation, and skill assessment. SBEC brings these activities together into one centralized platform.
 
-The system provides students with a structured career roadmap while allowing them to track their learning progress and continuously improve their skills.
+The platform provides students with structured learning guidance, career planning tools, assessments, AI-powered mentoring, and progress tracking.
 
 ---
 
 ## 🎯 Problem Statement
 
-Students often use different platforms for:
+Students commonly use different platforms for different career-development activities, such as:
 
 - Learning technical skills
 - Creating study plans
@@ -25,15 +25,15 @@ Students often use different platforms for:
 - Creating portfolios
 - Preparing for interviews
 - Testing their knowledge
-- Tracking their progress
+- Tracking learning progress
 
-Managing all these activities separately can make career preparation difficult and unorganized.
+Managing these activities across multiple platforms can make career preparation difficult and unorganized.
 
-**SBEC aims to solve this problem by bringing these career-development activities together in a single platform.**
+**SBEC aims to solve this problem by bringing important career-development activities together into a single platform.**
 
 ---
 
-## 💡 Main Objectives
+## 💡 Objectives
 
 The main objectives of SBEC are:
 
@@ -54,14 +54,14 @@ The main objectives of SBEC are:
 
 ## 🎓 Student Panel
 
-### Dashboard
+### 📊 Dashboard
 
-Students can get an overview of their career-development activities.
+The student dashboard provides an overview of the student's career-development activities.
 
-The dashboard can display:
+It can display:
 
 - Learning progress
-- Tasks
+- Total tasks
 - Completed tasks
 - Learning streak
 - Test performance
@@ -70,9 +70,9 @@ The dashboard can display:
 
 ---
 
-## ✅ Task Manager
+### ✅ Task Manager
 
-Students can manage their learning and career-related tasks.
+The Task Manager helps students organize their learning and career-related activities.
 
 Features include:
 
@@ -83,13 +83,13 @@ Features include:
 - Task priorities
 - Search tasks
 - Filter tasks
-- Task status
+- Task status tracking
 
 ---
 
-## 📅 Daily Planner
+### 📅 Daily Planner
 
-The Daily Planner helps students organize their activities for each day.
+The Daily Planner allows students to organize their activities for each day.
 
 Students can plan:
 
@@ -98,15 +98,15 @@ Students can plan:
 - Projects
 - Revision
 - Interview preparation
-- Other career activities
+- Other career-related activities
 
 ---
 
-## 📆 Weekly Planner
+### 📆 Weekly Planner
 
-Students can organize their learning activities across an entire week.
+The Weekly Planner helps students organize their learning activities throughout the week.
 
-The planner helps students maintain a structured learning schedule.
+It provides a structured way to manage weekly learning goals and activities.
 
 ---
 
@@ -114,7 +114,7 @@ The planner helps students maintain a structured learning schedule.
 
 SBEC includes an AI-powered mentor designed to assist students with their learning and career preparation.
 
-The AI Mentor can help students with:
+The AI Mentor can help with:
 
 - Programming questions
 - Technical concepts
@@ -124,7 +124,7 @@ The AI Mentor can help students with:
 - Interview preparation
 - Project guidance
 
-If a student asks about learning a particular technology or topic, the system can help create a structured task-based learning plan.
+If a student wants to learn a particular technology or topic, the AI Mentor can help create a structured, task-based learning plan.
 
 ---
 
@@ -132,7 +132,7 @@ If a student asks about learning a particular technology or topic, the system ca
 
 Students can follow structured learning paths for different technologies and career goals.
 
-Example:
+### Example: Web Development
 
 ```text
 Web Development
@@ -150,261 +150,329 @@ Web Development
        ├── Express.js
        │
        └── MongoDB
+```
 
-The roadmap allows students to progress step by step.
+The roadmap allows students to progress through learning topics step by step.
 
-📝 Weekly Tests
+---
+
+# 📝 Weekly Tests
 
 SBEC includes a weekly testing system to evaluate student learning.
 
 The planned learning flow is:
 
+```text
 Learning
-   │
-   ▼
+    │
+    ▼
 6 Days of Learning
-   │
-   ▼
+    │
+    ▼
 Weekly Test
-   │
-   ▼
+    │
+    ▼
 Performance Evaluation
-   │
-   ▼
+    │
+    ▼
 Progress Tracking
+```
 
-The test can evaluate the student's understanding of the topics learned during the week.
+The weekly test evaluates the student's understanding of the topics learned during the learning period.
 
-🏆 Skill Verification
+---
 
-SBEC provides a skill verification mechanism.
+# 🏆 Skill Verification
 
-When a student wants to add a technical skill to their profile, the system can verify their understanding through questions.
+SBEC provides a skill verification mechanism to help students demonstrate their understanding of technical skills.
 
-Example:
+When a student wants to add a technical skill to their profile, the system can verify their knowledge through questions.
 
-Student adds:
-JavaScript
-       │
-       ▼
-Basic Questions
-       │
-       ▼
-Student Answers
-       │
-       ├── Correct
-       │      │
-       │      ▼
-       │   Skill Verified
-       │
-       └── Incorrect
-              │
-              ▼
-        Skill Not Verified
+### Example
 
-This helps make the student's listed skills more meaningful.
+```text
+Student adds JavaScript
+          │
+          ▼
+     Basic Questions
+          │
+          ▼
+     Student Answers
+          │
+      ┌───┴───┐
+      ▼       ▼
+   Correct  Incorrect
+      │       │
+      ▼       ▼
+    Skill    Skill
+   Verified  Not Verified
+```
 
-📄 Resume Builder
+This helps make the skills listed on a student's profile more meaningful.
 
-Students can create professional resumes through SBEC.
+---
 
-The Resume Builder can include:
+# 📄 Resume Builder
 
-Personal information
-Education
-Skills
-Projects
-Experience
-Certifications
-Achievements
+The Resume Builder allows students to create professional resumes.
 
-The system can generate a structured resume that students can use for job and internship applications.
+The resume can include:
 
-🌐 Portfolio Builder
+- Personal Information
+- Education
+- Skills
+- Projects
+- Experience
+- Certifications
+- Achievements
 
-Students can generate a professional portfolio based on their profile information.
+The system can generate a structured resume that students can use for internship and job applications.
+
+---
+
+# 🌐 Portfolio Builder
+
+Students can create a professional portfolio based on their profile information.
 
 The portfolio can contain:
 
-About section
-Skills
-Projects
-Education
-Experience
-Certifications
-Contact information
-🎤 Interview Preparation
+- About
+- Skills
+- Projects
+- Education
+- Experience
+- Certifications
+- Contact Information
 
-SBEC can help students prepare for technical interviews.
+---
+
+# 🎤 Interview Preparation
+
+SBEC can help students prepare for technical and HR interviews.
 
 Possible features include:
 
-Technical questions
-HR questions
-Mock interviews
-Topic-based questions
-Interview feedback
-Performance tracking
-👤 Student Profile
+- Technical questions
+- HR questions
+- Mock interviews
+- Topic-based questions
+- Interview feedback
+- Performance tracking
+
+---
+
+# 👤 Student Profile
 
 Students can maintain their career profile.
 
-Profile information may include:
+Profile information can include:
 
-Name
-Email
-Course
-Academic year
-Semester
-Skills
-Projects
-Certifications
-Career interests
-⚙️ Settings
+- Name
+- Email
+- Course
+- Academic Year
+- Semester
+- Skills
+- Projects
+- Certifications
+- Career Interests
 
-Students can manage application preferences through the Settings section.
+---
+
+# ⚙️ Settings
+
+Students can manage their application preferences through the Settings section.
 
 Possible settings include:
 
-Account settings
-Password management
-Notifications
-Preferences
-Security
-👨‍💼 Admin Panel
+- Account settings
+- Password management
+- Notifications
+- Preferences
+- Security
 
-SBEC also provides an administration panel for managing the platform.
+---
 
-The Admin Panel can include:
+# 👨‍💼 Admin Panel
 
-Admin Dashboard
-Student Management
-Subject Management
-Notes
-Previous Year Papers
-Quiz Questions
-Weekly Tests
-Exam Data
-Settings
-📊 Admin Dashboard
+SBEC includes an administration panel for managing the platform.
 
-Administrators can monitor platform information such as:
+The Admin Panel includes:
 
-Total students
-Subjects
-Exams
-Weekly tests
-Quiz questions
-Other system statistics
-👥 Student Management
+- Admin Dashboard
+- Student Management
+- Subject Management
+- Notes
+- Previous Year Papers
+- Quiz Questions
+- Weekly Tests
+- Exam Data
+- Settings
+
+---
+
+## 📊 Admin Dashboard
+
+Administrators can monitor important platform information such as:
+
+- Total Students
+- Total Subjects
+- Total Exams
+- Weekly Tests
+- Quiz Questions
+- Other system statistics
+
+---
+
+## 👥 Student Management
 
 Administrators can manage registered students.
 
-Possible operations include:
+Operations can include:
 
-View students
-Search students
-View student details
-Manage student information
-📚 Subject Management
+- View students
+- Search students
+- View student details
+- Manage student information
+
+---
+
+## 📚 Subject Management
 
 Administrators can manage academic subjects used throughout the platform.
 
-📖 Notes
+---
 
-The admin can manage educational notes that students can access for their studies.
+## 📖 Notes
 
-📑 Previous Year Papers
+Administrators can manage educational notes that students can access for their studies.
+
+---
+
+## 📑 Previous Year Papers
 
 Administrators can manage previous-year examination papers.
 
-Students can use them for examination preparation.
+Students can use these papers for examination preparation.
 
-❓ Quiz Questions
+---
+
+## ❓ Quiz Questions
 
 Administrators can create and manage quiz questions.
 
 These questions can be used for learning and assessment.
 
-📝 Weekly Test Management
+---
+
+## 📝 Weekly Test Management
 
 Administrators can create and manage weekly tests for students.
 
 The admin can manage:
 
-Test title
-Subject
-Questions
-Test status
-Test information
-📅 Exam Data
+- Test title
+- Subject
+- Questions
+- Test status
+- Test information
+
+---
+
+## 📅 Exam Data
 
 Administrators can manage examination information.
 
 Exam data can include:
 
-Exam title
-Subject
-Examination date
-Academic year
-Semester
-Duration
+- Exam title
+- Subject
+- Examination date
+- Academic year
+- Semester
+- Duration
 
-This allows students to see important examination information in the student panel.
+This information can then be displayed to students through the student panel.
 
-🏗️ System Architecture
-                    SBEC
-                     │
-          ┌──────────┴──────────┐
-          │                     │
-     Student Panel          Admin Panel
-          │                     │
-          └──────────┬──────────┘
-                     │
-                     ▼
-                REST APIs
-                     │
-                     ▼
-              Node.js / Express
-                     │
-          ┌──────────┴──────────┐
-          │                     │
-     Controllers             Services
-          │                     │
-          └──────────┬──────────┘
-                     │
-                     ▼
-                  MongoDB
-🛠️ Technology Stack
-Frontend
-React.js
-JavaScript
-HTML5
-CSS3
-React Router
-Axios
-Framer Motion
-React Icons
-React Hot Toast
-Backend
-Node.js
-Express.js
-REST APIs
-JWT Authentication
-bcryptjs
-Database
-MongoDB
-Mongoose
-AI
-Generative AI APIs
-AI-powered mentoring
-AI-assisted career guidance
-Development Tools
-Visual Studio Code
-Git
-GitHub
-Postman / Thunder Client
-📂 Project Structure
+---
+
+# 🏗️ System Architecture
+
+```text
+                         SBEC
+                          │
+             ┌────────────┴────────────┐
+             │                         │
+             ▼                         ▼
+      Student Panel               Admin Panel
+             │                         │
+             └────────────┬────────────┘
+                          │
+                          ▼
+                       REST APIs
+                          │
+                          ▼
+                   Node.js / Express
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+              ▼                       ▼
+         Controllers               Services
+              │                       │
+              └───────────┬───────────┘
+                          │
+                          ▼
+                       MongoDB
+```
+
+---
+
+# 🛠️ Technology Stack
+
+## Frontend
+
+- React.js
+- JavaScript
+- HTML5
+- CSS3
+- React Router
+- Axios
+- Framer Motion
+- React Icons
+- React Hot Toast
+
+## Backend
+
+- Node.js
+- Express.js
+- REST APIs
+- JWT Authentication
+- bcryptjs
+
+## Database
+
+- MongoDB
+- Mongoose
+
+## AI
+
+- Generative AI APIs
+- AI-powered mentoring
+- AI-assisted career guidance
+
+## Development Tools
+
+- Visual Studio Code
+- Git
+- GitHub
+- Postman
+- Thunder Client
+
+---
+
+# 📂 Project Structure
+
+```text
 SBEC/
 │
 ├── Backend/
@@ -445,12 +513,17 @@ SBEC/
 │
 ├── .gitignore
 └── README.md
-🔐 Authentication
+```
+
+---
+
+# 🔐 Authentication
 
 SBEC uses authentication to protect student and administrator areas.
 
-General flow:
+The general authentication flow is:
 
+```text
 Login
   │
   ▼
@@ -464,175 +537,238 @@ Protected Routes
   │
   ▼
 Dashboard
+```
 
-Authentication helps prevent unauthorized access to protected resources.
+Authentication helps prevent unauthorized users from accessing protected resources.
 
-🔌 Backend API
+---
+
+# 🔌 Backend API
 
 The frontend communicates with the backend through REST APIs.
 
-Example API structure:
+### Authentication
 
+```text
 /api/auth
 /api/admin/auth
+```
 
+### Admin APIs
+
+```text
 /api/admin
 /api/admin/notes
 /api/admin/quiz
 /api/admin/weekly-tests
 /api/admin/exams
 /api/admin/settings
+```
 
+### Papers
+
+```text
 /api/papers
+```
 
+### Student APIs
+
+```text
 /api/student/dashboard
 /api/student/subjects
-📱 Responsive Design
+```
 
-SBEC is designed to be responsive and usable across:
+---
 
-Desktop
-Laptop
-Tablet
-Mobile
+# 📱 Responsive Design
 
-The interface uses responsive layouts so that important features remain accessible on smaller screens.
+SBEC is designed to provide a responsive experience across different screen sizes.
 
-🔒 Security
+Supported devices include:
+
+- 🖥️ Desktop
+- 💻 Laptop
+- 📱 Mobile
+- 📲 Tablet
+
+The interface uses responsive layouts to keep the application usable on smaller screens.
+
+---
+
+# 🔒 Security
 
 Security considerations include:
 
-JWT authentication
-Password hashing
-Protected routes
-Authorization
-Server-side validation
-Client-side validation
-Environment variables
-Secure API communication
+- JWT authentication
+- Password hashing
+- Protected routes
+- Authorization
+- Server-side validation
+- Client-side validation
+- Environment variables
+- Secure API communication
 
-Sensitive credentials should never be committed to GitHub.
+> **Important:** Sensitive credentials such as database passwords, API keys, JWT secrets, and environment variables should never be committed to GitHub.
 
-⚙️ Installation
-1. Clone the repository
+---
+
+# ⚙️ Installation
+
+## 1. Clone the Repository
+
+```bash
 git clone https://github.com/BandwarShlok/SBEC-Student-Blueprint-to-Enhance-your-Career.git
-2. Enter the project
+```
+
+---
+
+## 2. Enter the Project Directory
+
+```bash
 cd SBEC-Student-Blueprint-to-Enhance-your-Career
-🚀 Backend Setup
+```
+
+---
+
+# 🚀 Backend Setup
+
+Open a terminal and navigate to the Backend folder:
+
+```bash
 cd Backend
+```
 
 Install dependencies:
 
+```bash
 npm install
+```
 
-Create a .env file:
+Create a `.env` file inside the Backend folder:
 
+```env
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
+```
 
 Start the backend:
 
+```bash
 npm start
+```
 
 For development:
 
+```bash
 npm run dev
-💻 Frontend Setup
+```
 
-Open another terminal:
+---
 
+# 💻 Frontend Setup
+
+Open another terminal and navigate to the Frontend folder:
+
+```bash
 cd Frontend
+```
 
 Install dependencies:
 
+```bash
 npm install
+```
 
-Start the frontend:
+Start the development server:
 
+```bash
 npm run dev
+```
 
 The frontend normally runs on:
 
+```text
 http://localhost:5173
-🧪 API Testing
+```
+
+---
+
+# 🧪 API Testing
 
 Backend APIs can be tested using:
 
-Postman
-Thunder Client
+- Postman
+- Thunder Client
 
-Important areas to test:
+Important areas to test include:
 
-Authentication
-Student APIs
-Admin APIs
-Subject APIs
-Exam APIs
-Weekly Test APIs
-Quiz APIs
-Notes APIs
-🔮 Future Enhancements
+- Authentication
+- Student APIs
+- Admin APIs
+- Subject APIs
+- Exam APIs
+- Weekly Test APIs
+- Quiz APIs
+- Notes APIs
 
-Future versions of SBEC can include:
+---
 
-Advanced AI career recommendations
-AI resume optimization
-AI portfolio generation
-AI mock interviews
-Job recommendation system
-Internship recommendation system
-Skill-gap analysis
-Personalized career roadmaps
-GitHub profile analysis
-LinkedIn profile optimization
-Learning analytics
-Achievement badges
-Gamification
-Notifications
-Email reminders
-Advanced progress analytics
-🎓 Project Purpose
+# 🔮 Future Enhancements
 
-SBEC is developed as an academic and portfolio project with the goal of demonstrating the practical implementation of:
+Possible future enhancements include:
 
-Full-stack web development
-REST API development
-Database management
-Authentication
-Responsive UI/UX
-AI integration
-Career-development workflows
-👨‍💻 Developer
-Shlok Bandwar
+- AI career recommendations
+- AI resume optimization
+- AI portfolio generation
+- AI mock interviews
+- Job recommendation system
+- Internship recommendation system
+- Skill-gap analysis
+- Personalized career roadmaps
+- GitHub profile analysis
+- LinkedIn profile optimization
+- Learning analytics
+- Achievement badges
+- Gamification
+- Push notifications
+- Email reminders
+- Advanced progress analytics
 
-B.Sc. Computer Science Student
+---
+
+# 🎓 Project Purpose
+
+SBEC is developed as an academic and portfolio project to demonstrate the practical implementation of:
+
+- Full-stack web development
+- REST API development
+- Database management
+- Authentication
+- Responsive UI/UX
+- AI integration
+- Career-development workflows
+
+---
+
+# 👨‍💻 Developer
+
+## Shlok Bandwar
+
+**B.Sc. Computer Science Student**
 
 GitHub:
 
 https://github.com/BandwarShlok
 
-⭐ Project
+---
 
-If you find SBEC useful, consider giving the repository a ⭐.
+# ⭐ Support
 
-📄 License
+If you find this project useful, consider giving the repository a ⭐ on GitHub.
+
+---
+
+# 📄 License
 
 This project is developed for educational and academic purposes.
-
-
-### One thing before you push
-
-Your repository name from the screenshot is:
-
-**`SBEC-Student-Blueprint-to-Enhance-your-Career`**
-
-That's fine, although I'd personally use the cleaner:
-
-**`SBEC`**
-
-or
-
-**`SBEC-Career-Development-Platform`**
-
-For a portfolio/GitHub project, **`SBEC-Career-Development-Platform`** looks the most professional.
