@@ -771,4 +771,8 @@ If you find this project useful, consider giving the repository a ⭐ on GitHub.
 
 # 📄 License
 
+<<<<<<< HEAD
 This project is developed for educational and academic purposes.
+=======
+This project is developed for educational and academic purposes.
+>>>>>>> 17e7af26751a8eb975fdcd4388afc95484de4df1
