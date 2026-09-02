@@ -1,2 +1,85 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.local
+
+# Build files
+dist/
+build/
+**/dist/
+**/build/
+
+# Vite
+.vite/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# IntelliJ / WebStorm
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Backend uploads
+Backend/uploads/*
+!Backend/uploads/.gitkeep
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Certificates / keys
+*.pem
+*.key
+*.crt
+
+# Service account credentials
+serviceAccountKey.json
+
+# Environment / secret files
+secrets/
+credentials/
+
+# ESLint
+.eslintcache
+
 /Project Synopsis Shlok Bandwar(TY BSC CS).docx
 /Top Secret.docx
