@@ -4,47 +4,54 @@ function AdminProtectedRoute() {
   const token = localStorage.getItem("admin_token");
   const adminData = localStorage.getItem("admin");
 
-  // Check login
+  // ---------------------------------------------
+  // CHECK ADMIN LOGIN
+  // ---------------------------------------------
   if (!token || !adminData) {
-    return (
-      <Navigate
-        to="/admin/login"
-        replace
-      />
-    );
+    return <Navigate to="/admin/login" replace />;
   }
 
-  // Read admin data
+  // ---------------------------------------------
+  // READ ADMIN DATA
+  // ---------------------------------------------
   let admin;
 
   try {
     admin = JSON.parse(adminData);
-  } catch  {
+  } catch (error) {
+    console.error("Admin data parsing error:", error);
+
     localStorage.removeItem("admin_token");
     localStorage.removeItem("admin");
 
-    return (
-      <Navigate
-        to="/admin/login"
-        replace
-      />
-    );
+    return <Navigate to="/admin/login" replace />;
   }
 
-  // Check admin role
+  // ---------------------------------------------
+  // CHECK ADMIN DATA
+  // ---------------------------------------------
+  if (!admin || typeof admin !== "object") {
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin");
+
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  // ---------------------------------------------
+  // CHECK ADMIN ROLE
+  // ---------------------------------------------
   if (admin.role !== "admin") {
+    console.error("Access denied: account is not an admin.");
+
     localStorage.removeItem("admin_token");
     localStorage.removeItem("admin");
 
-    return (
-      <Navigate
-        to="/admin/login"
-        replace
-      />
-    );
+    return <Navigate to="/admin/login" replace />;
   }
 
-  // Admin authenticated
+  // ---------------------------------------------
+  // ADMIN AUTHENTICATED
+  // ---------------------------------------------
   return <Outlet />;
 }
 

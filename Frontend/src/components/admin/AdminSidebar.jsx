@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+
 import {
   FaTachometerAlt,
   FaUsers,
@@ -9,12 +10,14 @@ import {
   FaQuestionCircle,
   FaClipboardCheck,
   FaCalendarAlt,
+  FaChartLine,
   FaCog,
   FaSignOutAlt,
   FaGraduationCap,
   FaBars,
   FaTimes,
 } from "react-icons/fa";
+
 import toast from "react-hot-toast";
 
 function AdminSidebar() {
@@ -30,41 +33,61 @@ function AdminSidebar() {
       path: "/admin/dashboard",
       icon: <FaTachometerAlt />,
     },
+
     {
       name: "Students",
       path: "/admin/students",
       icon: <FaUsers />,
     },
+
+    {
+      name: "Daily Planner",
+      path: "/admin/daily-planner",
+      icon: <FaCalendarAlt />,
+    },
+
+    {
+      name: "Planner Activity",
+      path: "/admin/daily-planner/activity",
+      icon: <FaChartLine />,
+    },
+
     {
       name: "Subjects",
       path: "/admin/subjects",
       icon: <FaBook />,
     },
+
     {
       name: "Notes",
       path: "/admin/notes",
       icon: <FaStickyNote />,
     },
+
     {
       name: "Previous Papers",
       path: "/admin/papers",
       icon: <FaFileAlt />,
     },
+
     {
       name: "Quiz Questions",
       path: "/admin/quiz",
       icon: <FaQuestionCircle />,
     },
+
     {
       name: "Weekly Tests",
       path: "/admin/weekly-tests",
       icon: <FaClipboardCheck />,
     },
+
     {
       name: "Exam Data",
       path: "/admin/exams",
       icon: <FaCalendarAlt />,
     },
+
     {
       name: "Settings",
       path: "/admin/settings",
@@ -83,20 +106,32 @@ function AdminSidebar() {
       // ------------------------------------
 
       localStorage.removeItem("admin_token");
+
       localStorage.removeItem("adminToken");
+
       localStorage.removeItem("admin");
+
       localStorage.removeItem("admin_logged_in");
+
       localStorage.removeItem("adminLoggedIn");
+
+      localStorage.removeItem("sbec_admin_token");
 
       // ------------------------------------
       // REMOVE SESSION DATA
       // ------------------------------------
 
       sessionStorage.removeItem("admin_token");
+
       sessionStorage.removeItem("adminToken");
+
       sessionStorage.removeItem("admin");
+
       sessionStorage.removeItem("admin_logged_in");
+
       sessionStorage.removeItem("adminLoggedIn");
+
+      sessionStorage.removeItem("sbec_admin_token");
 
       // ------------------------------------
       // CLOSE MOBILE SIDEBAR
@@ -105,13 +140,13 @@ function AdminSidebar() {
       setMobileOpen(false);
 
       // ------------------------------------
-      // SHOW SUCCESS MESSAGE
+      // SUCCESS MESSAGE
       // ------------------------------------
 
       toast.success("Logged out successfully");
 
       // ------------------------------------
-      // REDIRECT TO LOGIN
+      // REDIRECT
       // ------------------------------------
 
       setTimeout(() => {
@@ -120,7 +155,6 @@ function AdminSidebar() {
     } catch (error) {
       console.error("Logout error:", error);
 
-      // Force login page even if an error occurs
       window.location.replace("/admin/login");
     }
   };
@@ -150,13 +184,9 @@ function AdminSidebar() {
           </div>
 
           <div>
-            <div className="admin-mobile-title">
-              SBEC
-            </div>
+            <div className="admin-mobile-title">SBEC</div>
 
-            <div className="admin-mobile-subtitle">
-              Admin Panel
-            </div>
+            <div className="admin-mobile-subtitle">Admin Panel</div>
           </div>
         </div>
 
@@ -175,10 +205,7 @@ function AdminSidebar() {
       ===================================================== */}
 
       {mobileOpen && (
-        <div
-          className="admin-sidebar-overlay"
-          onClick={closeMobileMenu}
-        />
+        <div className="admin-sidebar-overlay" onClick={closeMobileMenu} />
       )}
 
       {/* =====================================================
@@ -186,9 +213,7 @@ function AdminSidebar() {
       ===================================================== */}
 
       <aside
-        className={`admin-sidebar ${
-          mobileOpen ? "admin-sidebar-open" : ""
-        }`}
+        className={`admin-sidebar ${mobileOpen ? "admin-sidebar-open" : ""}`}
       >
         {/* ===================================================
             BRAND
@@ -202,6 +227,7 @@ function AdminSidebar() {
 
             <div>
               <h2>SBEC</h2>
+
               <p>Admin Panel</p>
             </div>
           </div>
@@ -223,26 +249,21 @@ function AdminSidebar() {
         =================================================== */}
 
         <nav className="admin-sidebar-nav">
-          <p className="admin-sidebar-heading">
-            Management
-          </p>
+          <p className="admin-sidebar-heading">Management</p>
 
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
+              end
               onClick={closeMobileMenu}
               className={({ isActive }) =>
                 `admin-sidebar-link ${
-                  isActive
-                    ? "admin-sidebar-link-active"
-                    : ""
+                  isActive ? "admin-sidebar-link-active" : ""
                 }`
               }
             >
-              <span className="admin-sidebar-icon">
-                {item.icon}
-              </span>
+              <span className="admin-sidebar-icon">{item.icon}</span>
 
               <span>{item.name}</span>
             </NavLink>
@@ -295,7 +316,8 @@ function AdminSidebar() {
 
             overflow-y: auto;
 
-            transition: transform 0.3s ease;
+            transition:
+              transform 0.3s ease;
           }
 
 
@@ -306,12 +328,15 @@ function AdminSidebar() {
           .admin-sidebar-brand {
             padding: 28px 25px;
 
-            border-bottom: 1px solid #1E293B;
+            border-bottom:
+              1px solid #1E293B;
           }
 
           .admin-sidebar-brand-content {
             display: flex;
+
             align-items: center;
+
             gap: 12px;
           }
 
@@ -324,7 +349,9 @@ function AdminSidebar() {
             background: #8B5CF6;
 
             display: flex;
+
             align-items: center;
+
             justify-content: center;
 
             color: #FFFFFF;
@@ -422,7 +449,13 @@ function AdminSidebar() {
             font-weight: 600;
 
             box-shadow:
-              0 8px 20px rgba(139, 92, 246, 0.20);
+              0 8px 20px
+              rgba(
+                139,
+                92,
+                246,
+                0.20
+              );
           }
 
           .admin-sidebar-icon {
@@ -445,9 +478,11 @@ function AdminSidebar() {
           ================================================= */
 
           .admin-sidebar-logout-wrapper {
-            padding: 15px 14px 20px;
+            padding:
+              15px 14px 20px;
 
-            border-top: 1px solid #1E293B;
+            border-top:
+              1px solid #1E293B;
           }
 
           .admin-sidebar-logout {
@@ -550,7 +585,8 @@ function AdminSidebar() {
 
             border-radius: 10px;
 
-            border: 1px solid #334155;
+            border:
+              1px solid #334155;
 
             background: #1E293B;
 
@@ -575,7 +611,13 @@ function AdminSidebar() {
 
             inset: 0;
 
-            background: rgba(0, 0, 0, 0.60);
+            background:
+              rgba(
+                0,
+                0,
+                0,
+                0.60
+              );
 
             z-index: 199;
           }
@@ -593,13 +635,15 @@ function AdminSidebar() {
 
             border-radius: 9px;
 
-            border: 1px solid #334155;
+            border:
+              1px solid #334155;
 
             background: #1E293B;
 
             color: #FFFFFF;
 
             align-items: center;
+
             justify-content: center;
 
             font-size: 16px;
@@ -627,7 +671,8 @@ function AdminSidebar() {
 
               background: #0F172A;
 
-              border-bottom: 1px solid #1E293B;
+              border-bottom:
+                1px solid #1E293B;
 
               display: flex;
 
@@ -644,15 +689,23 @@ function AdminSidebar() {
 
               max-width: 85vw;
 
-              transform: translateX(-100%);
+              transform:
+                translateX(-100%);
 
               box-shadow:
-                10px 0 30px rgba(0, 0, 0, 0.40);
+                10px 0 30px
+                rgba(
+                  0,
+                  0,
+                  0,
+                  0.40
+                );
             }
 
 
             .admin-sidebar.admin-sidebar-open {
-              transform: translateX(0);
+              transform:
+                translateX(0);
             }
 
 

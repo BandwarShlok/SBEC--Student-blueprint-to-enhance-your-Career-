@@ -7,7 +7,7 @@ import {
   FaCalendarAlt,
   FaFileAlt,
   FaClipboardCheck,
-  FaCalculator,
+  FaCog,
   FaUser,
   FaSignOutAlt,
   FaGraduationCap,
@@ -23,17 +23,30 @@ function Sidebar() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // =========================================
+  // LOGOUT
+  // =========================================
+
   const handleLogout = () => {
     setMobileOpen(false);
     logout();
     navigate("/login");
   };
 
+  // =========================================
+  // STUDENT MENU
+  // =========================================
+
   const menuItems = [
     {
       name: "Dashboard",
       path: "/dashboard",
       icon: <FaHome />,
+    },
+    {
+      name: "Daily Planner",
+      path: "/daily-planner",
+      icon: <FaCalendarAlt />,
     },
     {
       name: "Subjects",
@@ -61,14 +74,14 @@ function Sidebar() {
       icon: <FaClipboardCheck />,
     },
     {
-      name: "CGPA Calculator",
-      path: "/cgpa-calculator",
-      icon: <FaCalculator />,
-    },
-    {
       name: "Profile",
       path: "/profile",
       icon: <FaUser />,
+    },
+    {
+      name: "Settings",
+      path: "/settings",
+      icon: <FaCog />,
     },
   ];
 
@@ -92,6 +105,7 @@ function Sidebar() {
         </div>
 
         <button
+          type="button"
           className="student-mobile-menu-button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open navigation"
@@ -120,7 +134,9 @@ function Sidebar() {
           mobileOpen ? "student-sidebar-open" : ""
         }`}
       >
-        {/* Logo */}
+        {/* =========================================
+            SIDEBAR LOGO
+        ========================================= */}
 
         <div className="student-sidebar-logo">
           <div className="student-sidebar-brand">
@@ -130,14 +146,14 @@ function Sidebar() {
 
             <div>
               <h2>SBEC</h2>
-
               <p>Smart Career Platform</p>
             </div>
           </div>
 
-          {/* Mobile close button */}
+          {/* Mobile Close Button */}
 
           <button
+            type="button"
             className="student-mobile-close"
             onClick={() => setMobileOpen(false)}
             aria-label="Close navigation"
@@ -146,7 +162,9 @@ function Sidebar() {
           </button>
         </div>
 
-        {/* Navigation */}
+        {/* =========================================
+            NAVIGATION
+        ========================================= */}
 
         <nav className="student-sidebar-nav">
           <p className="student-menu-heading">Main Menu</p>
@@ -169,10 +187,16 @@ function Sidebar() {
           ))}
         </nav>
 
-        {/* Logout */}
+        {/* =========================================
+            LOGOUT
+        ========================================= */}
 
         <div className="student-sidebar-bottom">
-          <button className="student-sidebar-logout" onClick={handleLogout}>
+          <button
+            type="button"
+            className="student-sidebar-logout"
+            onClick={handleLogout}
+          >
             <span className="student-sidebar-icon">
               <FaSignOutAlt />
             </span>
@@ -271,6 +295,7 @@ function Sidebar() {
           color: white;
 
           font-size: 22px;
+
           font-weight: 800;
         }
 
@@ -360,6 +385,9 @@ function Sidebar() {
           color: white !important;
 
           font-weight: 600;
+
+          box-shadow:
+            0 8px 20px rgba(139, 92, 246, 0.20);
         }
 
 
@@ -415,6 +443,10 @@ function Sidebar() {
           text-align: left;
 
           cursor: pointer;
+
+          transition:
+            background 0.2s ease,
+            color 0.2s ease;
         }
 
 
@@ -450,10 +482,6 @@ function Sidebar() {
 
         @media (max-width: 768px) {
 
-          /* ---------------------------------------
-             MOBILE HEADER
-          --------------------------------------- */
-
           .student-mobile-header {
             position: fixed;
 
@@ -480,10 +508,6 @@ function Sidebar() {
             z-index: 900;
           }
 
-
-          /* ---------------------------------------
-             MOBILE BRAND
-          --------------------------------------- */
 
           .student-mobile-brand {
             display: flex;
@@ -536,9 +560,9 @@ function Sidebar() {
           }
 
 
-          /* ---------------------------------------
-             MENU BUTTON
-          --------------------------------------- */
+          /* =========================================
+             MOBILE MENU BUTTON
+          ========================================= */
 
           .student-mobile-menu-button {
             width: 56px;
@@ -561,6 +585,15 @@ function Sidebar() {
             font-size: 24px;
 
             cursor: pointer;
+
+            transition: 0.2s ease;
+          }
+
+
+          .student-mobile-menu-button:hover {
+            background: #8B5CF6;
+
+            border-color: #8B5CF6;
           }
 
 
@@ -569,9 +602,9 @@ function Sidebar() {
           }
 
 
-          /* ---------------------------------------
-             SIDEBAR DRAWER
-          --------------------------------------- */
+          /* =========================================
+             MOBILE SIDEBAR DRAWER
+          ========================================= */
 
           .student-sidebar {
             width: 280px;
@@ -595,9 +628,9 @@ function Sidebar() {
           }
 
 
-          /* ---------------------------------------
-             SIDEBAR HEADER
-          --------------------------------------- */
+          /* =========================================
+             MOBILE SIDEBAR HEADER
+          ========================================= */
 
           .student-sidebar-logo {
             height: 88px;
@@ -626,9 +659,9 @@ function Sidebar() {
           }
 
 
-          /* ---------------------------------------
+          /* =========================================
              CLOSE BUTTON
-          --------------------------------------- */
+          ========================================= */
 
           .student-mobile-close {
             display: flex;
@@ -647,17 +680,27 @@ function Sidebar() {
             color: #CBD5E1;
 
             align-items: center;
+
             justify-content: center;
 
             font-size: 18px;
 
             cursor: pointer;
+
+            transition: 0.2s ease;
           }
 
 
-          /* ---------------------------------------
+          .student-mobile-close:hover {
+            background: #8B5CF6;
+
+            color: white;
+          }
+
+
+          /* =========================================
              OVERLAY
-          --------------------------------------- */
+          ========================================= */
 
           .student-sidebar-overlay {
             display: block;
@@ -672,12 +715,14 @@ function Sidebar() {
           }
 
 
-          /* ---------------------------------------
-             MOBILE NAV
-          --------------------------------------- */
+          /* =========================================
+             MOBILE NAVIGATION
+          ========================================= */
 
           .student-sidebar-nav {
             padding: 20px 12px;
+
+            overflow-y: auto;
           }
 
 
@@ -695,9 +740,9 @@ function Sidebar() {
           }
 
 
-          /* ---------------------------------------
+          /* =========================================
              MOBILE LOGOUT
-          --------------------------------------- */
+          ========================================= */
 
           .student-sidebar-bottom {
             padding: 12px 12px 18px;
@@ -749,6 +794,11 @@ function Sidebar() {
             height: 50px;
 
             font-size: 21px;
+          }
+
+
+          .student-sidebar {
+            width: 275px;
           }
 
         }
