@@ -23,6 +23,8 @@ function Dashboard() {
   const { user, token, logout } = useAuth();
 
   const [dashboardData, setDashboardData] = useState(null);
+  const [studentExams, setStudentExams] = useState([]);
+  const [studentExamsLoaded, setStudentExamsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -83,6 +85,35 @@ function Dashboard() {
       // REAL BACKEND DATA
 
       setDashboardData(data);
+
+      // Load the student's own exams from Exam Planner.
+      // This is intentionally separate from the admin exam API.
+      try {
+        const examResponse = await fetch(`${API_URL}/api/exam-planner`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const examData = await examResponse.json();
+
+        if (examResponse.ok && examData?.success) {
+          setStudentExams(Array.isArray(examData.exams) ? examData.exams : []);
+          setStudentExamsLoaded(true);
+        } else {
+          console.warn(
+            "Student Exam Planner:",
+            examData?.message || "Could not load student exams.",
+          );
+        }
+      } catch (examError) {
+        console.warn(
+          "Student Exam Planner Error:",
+          examError?.message || examError,
+        );
+      }
     } catch (error) {
       console.error("Student Dashboard Error:", error);
 
@@ -202,6 +233,15 @@ function Dashboard() {
     dashboardData?.user?.name?.split(" ")[0] ||
     "Student";
 
+  const currentHour = new Date().getHours();
+
+  const greeting =
+    currentHour < 12
+      ? "GOOD MORNING"
+      : currentHour < 17
+        ? "GOOD AFTERNOON"
+        : "GOOD EVENING";
+
   // SAFE DATA
 
   const stats = dashboardData?.stats || {};
@@ -231,9 +271,31 @@ function Dashboard() {
     ? stats.pendingItems
     : [];
 
-  const upcomingExams = Array.isArray(stats.upcomingExams)
+  const dashboardExams = Array.isArray(stats.upcomingExams)
     ? stats.upcomingExams
     : [];
+
+  const rawUpcomingExams = studentExamsLoaded ? studentExams : dashboardExams;
+
+  const upcomingExams = rawUpcomingExams
+    .filter((exam) => {
+      const value = exam?.examDate || exam?.date;
+      if (!value) return false;
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return false;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+
+      return date >= today;
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.examDate || a.date).getTime() -
+        new Date(b.examDate || b.date).getTime(),
+    );
 
   // LOADING
 
@@ -296,7 +358,7 @@ function Dashboard() {
 
       <div className="dashboard-header" style={styles.header}>
         <div className="dashboard-header-text">
-          <p style={styles.greeting}>GOOD MORNING</p>
+          <p style={styles.greeting}>{greeting}</p>
 
           <h1 className="dashboard-main-title" style={styles.mainTitle}>
             Welcome back, {firstName} 👋
@@ -363,7 +425,9 @@ function Dashboard() {
           icon={<FaCalendarAlt />}
           title="Upcoming Exams"
           value={upcomingExams.length}
-          subtitle="Exams scheduled"
+          subtitle={
+            upcomingExams.length === 0 ? "No upcoming exams" : "Exams scheduled"
+          }
           iconBackground="#D97706"
         />
       </div>
@@ -646,23 +710,49 @@ function Dashboard() {
               <EmptyState message="No upcoming exams." />
             ) : (
               <div style={styles.examList}>
-                {upcomingExams.map((exam, index) => (
-                  <div
-                    key={exam._id || exam.id || index}
-                    style={styles.examItem}
-                  >
-                    <p style={styles.examSubject}>
-                      {exam.subject || exam.name || exam.title || "Exam"}
-                    </p>
+                {upcomingExams.slice(0, 3).map((exam, index) => {
+                  const examDate = new Date(exam.examDate || exam.date);
+                  const today = new Date();
 
-                    <p style={styles.examDate}>
-                      {exam.date ||
-                        exam.examDate ||
-                        exam.formattedDate ||
-                        "Date not available"}
-                    </p>
-                  </div>
-                ))}
+                  today.setHours(0, 0, 0, 0);
+                  examDate.setHours(0, 0, 0, 0);
+
+                  const daysRemaining = Math.ceil(
+                    (examDate.getTime() - today.getTime()) /
+                      (1000 * 60 * 60 * 24),
+                  );
+
+                  return (
+                    <div
+                      key={exam._id || exam.id || index}
+                      className="dashboard-exam-item"
+                      style={styles.examItem}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <p style={styles.examSubject}>
+                          {exam.subject || exam.name || exam.title || "Exam"}
+                        </p>
+
+                        <p style={styles.examDate}>
+                          {examDate.toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {exam.examTime ? ` • ${exam.examTime}` : ""}
+                        </p>
+                      </div>
+
+                      <span style={styles.examCountdown}>
+                        {daysRemaining === 0
+                          ? "Today"
+                          : `${daysRemaining} day${
+                              daysRemaining === 1 ? "" : "s"
+                            } left`}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -944,6 +1034,12 @@ function Dashboard() {
 
             .dashboard-exam-item {
               min-width: 0;
+              align-items: flex-start !important;
+            }
+
+            .dashboard-exam-item > span {
+              white-space: normal !important;
+              text-align: right;
             }
 
           }
@@ -1606,6 +1702,18 @@ const styles = {
     margin: 0,
 
     fontSize: "13px",
+  },
+
+  examCountdown: {
+    color: "#A78BFA",
+
+    fontSize: "12px",
+
+    fontWeight: "700",
+
+    whiteSpace: "nowrap",
+
+    flexShrink: 0,
   },
 
   emptyState: {

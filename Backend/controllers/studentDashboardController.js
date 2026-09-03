@@ -13,8 +13,7 @@ const getStudentDashboard = async (req, res) => {
     // CURRENT STUDENT
     // =====================================================
 
-    const studentId =
-      req.user?._id || req.user?.id;
+    const studentId = req.user?._id || req.user?.id;
 
     if (!studentId) {
       return res.status(401).json({
@@ -23,8 +22,7 @@ const getStudentDashboard = async (req, res) => {
       });
     }
 
-    const student = await User.findById(studentId)
-      .select("-password");
+    const student = await User.findById(studentId).select("-password");
 
     if (!student) {
       return res.status(404).json({
@@ -38,9 +36,10 @@ const getStudentDashboard = async (req, res) => {
     // =====================================================
 
     const studentYear = student.year || "";
+
     const studentSemester = student.semester || "";
-    const studentCourse =
-      student.course || "BSc Computer Science";
+
+    const studentCourse = student.course || "BSc Computer Science";
 
     // =====================================================
     // TODAY'S DATE
@@ -74,9 +73,7 @@ const getStudentDashboard = async (req, res) => {
       subjectFilter.course = studentCourse;
     }
 
-    const subjects = await Subject.find(
-      subjectFilter
-    )
+    const subjects = await Subject.find(subjectFilter)
       .sort({
         name: 1,
       })
@@ -96,8 +93,7 @@ const getStudentDashboard = async (req, res) => {
       noteFilter.semester = studentSemester;
     }
 
-    const totalNotes =
-      await Note.countDocuments(noteFilter);
+    const totalNotes = await Note.countDocuments(noteFilter);
 
     // =====================================================
     // PREVIOUS PAPERS
@@ -106,56 +102,28 @@ const getStudentDashboard = async (req, res) => {
     const paperFilter = {};
 
     if (studentYear) {
-      paperFilter.year =
-        Number(studentYear) || studentYear;
+      paperFilter.year = Number(studentYear) || studentYear;
     }
 
     if (studentSemester) {
       paperFilter.semester = studentSemester;
     }
 
-    const totalPapers =
-      await Paper.countDocuments(paperFilter);
+    const totalPapers = await Paper.countDocuments(paperFilter);
 
     // =====================================================
     // QUIZ QUESTIONS
     // =====================================================
 
-    const totalQuizQuestions =
-      await QuizQuestion.countDocuments();
+    const totalQuizQuestions = await QuizQuestion.countDocuments();
 
     // =====================================================
     // ACTIVE WEEKLY TESTS
     // =====================================================
 
-    const activeWeeklyTests =
-      await WeeklyTest.find({
-        status: "Active",
-      })
-        .sort({
-          createdAt: -1,
-        })
-        .limit(5)
-        .lean();
-
-    // =====================================================
-    // EXAMS
-    // =====================================================
-
-    const examFilter = {};
-
-    if (studentYear) {
-      examFilter.year =
-        Number(studentYear) || studentYear;
-    }
-
-    if (studentSemester) {
-      examFilter.semester = studentSemester;
-    }
-
-    const exams = await Exam.find(
-      examFilter
-    )
+    const activeWeeklyTests = await WeeklyTest.find({
+      status: "Active",
+    })
       .sort({
         createdAt: -1,
       })
@@ -163,11 +131,62 @@ const getStudentDashboard = async (req, res) => {
       .lean();
 
     // =====================================================
+    // EXAMS
+    // =====================================================
+    //
+    // IMPORTANT:
+    // Student Exam Planner exams contain the logged-in
+    // student's ID in the "user" field.
+    //
+    // This prevents one student from seeing another
+    // student's personal exams.
+    // =====================================================
+
+    const examFilter = {
+      user: studentId,
+    };
+
+    if (studentYear) {
+      examFilter.year = Number(studentYear) || studentYear;
+    }
+
+    if (studentSemester) {
+      examFilter.semester = studentSemester;
+    }
+
+    const exams = await Exam.find(examFilter)
+      .sort({
+        examDate: 1,
+      })
+      .lean();
+
+    // =====================================================
+    // UPCOMING EXAMS
+    // =====================================================
+
+    const upcomingExams = exams.filter((exam) => {
+      if (!exam.examDate) {
+        return false;
+      }
+
+      const examDate = new Date(exam.examDate);
+
+      if (Number.isNaN(examDate.getTime())) {
+        return false;
+      }
+
+      return examDate >= startOfToday;
+    });
+
+    const upcomingExamsLimited = upcomingExams.slice(0, 5);
+
+    // =====================================================
     // TODAY'S DAILY PLANNER
     // =====================================================
 
     const todayPlans = await DailyPlan.find({
       user: studentId,
+
       date: {
         $gte: startOfToday,
         $lte: endOfToday,
@@ -179,105 +198,85 @@ const getStudentDashboard = async (req, res) => {
       })
       .lean();
 
-    // Total tasks for today
-    const totalPlannerTasks =
-      todayPlans.length;
+    // =====================================================
+    // TOTAL TASKS FOR TODAY
+    // =====================================================
 
-    // Completed tasks for today
-    const completedPlannerTasks =
-      todayPlans.filter(
-        (plan) => plan.completed === true
-      ).length;
+    const totalPlannerTasks = todayPlans.length;
 
-    // Pending tasks for today
-    const pendingPlannerTasks =
-      totalPlannerTasks -
-      completedPlannerTasks;
+    // =====================================================
+    // COMPLETED TASKS FOR TODAY
+    // =====================================================
 
-    // Completion percentage
+    const completedPlannerTasks = todayPlans.filter(
+      (plan) => plan.completed === true,
+    ).length;
+
+    // =====================================================
+    // PENDING TASKS FOR TODAY
+    // =====================================================
+
+    const pendingPlannerTasks = totalPlannerTasks - completedPlannerTasks;
+
+    // =====================================================
+    // PLANNER COMPLETION PERCENTAGE
+    // =====================================================
+
     const plannerCompletionPercentage =
       totalPlannerTasks > 0
-        ? Math.round(
-            (completedPlannerTasks /
-              totalPlannerTasks) *
-              100
-          )
+        ? Math.round((completedPlannerTasks / totalPlannerTasks) * 100)
         : 0;
 
     // =====================================================
     // PLANNER PENDING ITEMS
     // =====================================================
 
-    /*
-      Dashboard already expects pendingItems
-      to be an array.
+    const pendingItems = todayPlans
+      .filter((plan) => plan.completed !== true)
+      .map((plan) => ({
+        id: plan._id,
 
-      We provide today's incomplete
-      Daily Planner tasks here.
-    */
+        title: plan.title,
 
-    const pendingItems =
-      todayPlans
-        .filter(
-          (plan) => plan.completed !== true
-        )
-        .map((plan) => ({
-          id: plan._id,
-          title: plan.title,
-          description:
-            plan.description || "",
-          date: plan.date,
-          startTime:
-            plan.startTime || "",
-          endTime:
-            plan.endTime || "",
-          priority:
-            plan.priority || "Medium",
-          category:
-            plan.category || "Study",
-          type: "daily-planner",
-          completed: false,
-        }));
+        description: plan.description || "",
 
-    // =====================================================
-    // UPCOMING EXAMS
-    // =====================================================
+        date: plan.date,
 
-    /*
-      Keep the existing exam data available
-      through upcomingExams so the Dashboard
-      can safely consume it as an array.
-    */
+        startTime: plan.startTime || "",
 
-    const upcomingExams = exams;
+        endTime: plan.endTime || "",
+
+        priority: plan.priority || "Medium",
+
+        category: plan.category || "Study",
+
+        type: "daily-planner",
+
+        completed: false,
+      }));
 
     // =====================================================
     // RECENT NOTES
     // =====================================================
 
-    const recentNotes =
-      await Note.find(noteFilter)
-        .populate(
-          "subject",
-          "name code"
-        )
-        .sort({
-          createdAt: -1,
-        })
-        .limit(5)
-        .lean();
+    const recentNotes = await Note.find(noteFilter)
+      .populate("subject", "name code")
+      .sort({
+        createdAt: -1,
+      })
+      .limit(5)
+      .lean();
 
     // =====================================================
     // RECENT PAPERS
     // =====================================================
 
-    const recentPapers =
-      await Paper.find(paperFilter)
-        .sort({
-          createdAt: -1,
-        })
-        .limit(5)
-        .lean();
+    const recentPapers = await Paper.find(paperFilter)
+      .sort({
+        createdAt: -1,
+      })
+      .limit(5)
+      .lean();
 
     // =====================================================
     // SUBJECT DATA
@@ -285,57 +284,125 @@ const getStudentDashboard = async (req, res) => {
 
     const subjectData = await Promise.all(
       subjects.map(async (subject) => {
-        const subjectId =
-          subject._id;
+        const subjectId = subject._id;
 
-        const notesCount =
-          await Note.countDocuments({
-            subject: subjectId,
-          });
+        // =================================================
+        // SUBJECT NOTES
+        // =================================================
 
-        const quizCount =
-          await QuizQuestion.countDocuments({
-            subject: subject.name,
-          });
+        const notesCount = await Note.countDocuments({
+          subject: subjectId,
+        });
 
-        const papersCount =
-          await Paper.countDocuments({
-            subject: subject.name,
-          });
+        // =================================================
+        // SUBJECT QUIZ QUESTIONS
+        // =================================================
 
-        const weeklyTestsCount =
-          await WeeklyTest.countDocuments({
-            subject: subject.name,
-            status: "Active",
-          });
+        const quizCount = await QuizQuestion.countDocuments({
+          subject: subject.name,
+        });
+
+        // =================================================
+        // SUBJECT PAPERS
+        // =================================================
+
+        const papersCount = await Paper.countDocuments({
+          subject: subject.name,
+        });
+
+        // =================================================
+        // SUBJECT WEEKLY TESTS
+        // =================================================
+
+        const weeklyTestsCount = await WeeklyTest.countDocuments({
+          subject: subject.name,
+
+          status: "Active",
+        });
+
+        // =================================================
+        // LEARNING PROGRESS
+        // =================================================
+        //
+        // If your Subject model contains any of these:
+        //
+        // progress
+        // progressPercentage
+        // completion
+        //
+        // we use that value.
+        //
+        // If none exists, we use 0 instead of returning
+        // null. This prevents the Dashboard from showing
+        // a dash.
+        // =================================================
+
+        const rawProgress =
+          subject.progress ?? subject.progressPercentage ?? subject.completion;
+
+        const numericProgress = Number(rawProgress);
+
+        const progress = Number.isFinite(numericProgress)
+          ? Math.min(100, Math.max(0, numericProgress))
+          : 0;
 
         return {
           id: subject._id,
+
           name: subject.name,
+
           code: subject.code,
 
           course: subject.course,
+
           year: subject.year,
+
           semester: subject.semester,
 
-          description:
-            subject.description || "",
+          description: subject.description || "",
 
           resources: {
             notes: notesCount,
+
             papers: papersCount,
+
             quizQuestions: quizCount,
-            activeWeeklyTests:
-              weeklyTestsCount,
+
+            activeWeeklyTests: weeklyTestsCount,
           },
 
-          // Progress cannot be calculated yet
-          // because there is currently no
-          // student progress model.
-          progress: null,
+          progress,
         };
-      })
+      }),
     );
+
+    // =====================================================
+    // OVERALL LEARNING PROGRESS
+    // =====================================================
+    //
+    // Calculates the average progress of all active
+    // subjects belonging to this student's course/year/
+    // semester.
+    //
+    // Example:
+    //
+    // AI       = 80%
+    // Networks = 60%
+    // SE       = 70%
+    // IoT      = 50%
+    //
+    // Overall = 65%
+    // =====================================================
+
+    const learningProgress =
+      subjectData.length > 0
+        ? Math.round(
+            subjectData.reduce(
+              (total, subject) => total + (Number(subject.progress) || 0),
+              0,
+            ) / subjectData.length,
+          )
+        : 0;
 
     // =====================================================
     // DASHBOARD RESPONSE
@@ -350,11 +417,17 @@ const getStudentDashboard = async (req, res) => {
 
       student: {
         id: student._id,
+
         name: student.name,
+
         email: student.email,
+
         course: student.course,
+
         year: student.year,
+
         semester: student.semester,
+
         role: student.role,
       },
 
@@ -363,8 +436,11 @@ const getStudentDashboard = async (req, res) => {
       // ===================================================
 
       stats: {
-        totalSubjects:
-          subjects.length,
+        // =================================================
+        // GENERAL STATS
+        // =================================================
+
+        totalSubjects: subjects.length,
 
         totalNotes,
 
@@ -372,41 +448,59 @@ const getStudentDashboard = async (req, res) => {
 
         totalQuizQuestions,
 
-        activeWeeklyTests:
-          activeWeeklyTests.length,
+        activeWeeklyTests: activeWeeklyTests.length,
 
-        totalExams:
-          exams.length,
+        totalExams: upcomingExamsLimited.length,
 
         // =================================================
         // DAILY PLANNER STATS
         // =================================================
 
         planner: {
-          totalTasks:
-            totalPlannerTasks,
+          totalTasks: totalPlannerTasks,
 
-          completedTasks:
-            completedPlannerTasks,
+          completedTasks: completedPlannerTasks,
 
-          pendingTasks:
-            pendingPlannerTasks,
+          pendingTasks: pendingPlannerTasks,
 
-          completionPercentage:
-            plannerCompletionPercentage,
+          completionPercentage: plannerCompletionPercentage,
         },
 
         // =================================================
-        // DASHBOARD COMPATIBILITY
+        // TODAY'S TEST
+        // =================================================
+        //
+        // There is currently no student test-attempt/result
+        // model in this controller.
+        //
+        // Therefore we DO NOT create a fake score.
+        //
+        // Dashboard will correctly show:
+        //
+        // —
+        //
+        // until test-result tracking is implemented.
         // =================================================
 
         todayTestScore: null,
 
-        learningProgress: null,
+        // =================================================
+        // LEARNING PROGRESS
+        // =================================================
+
+        learningProgress,
+
+        // =================================================
+        // PENDING ITEMS
+        // =================================================
 
         pendingItems,
 
-        upcomingExams,
+        // =================================================
+        // UPCOMING EXAMS
+        // =================================================
+
+        upcomingExams: upcomingExamsLimited,
       },
 
       // ===================================================
@@ -419,14 +513,13 @@ const getStudentDashboard = async (req, res) => {
       // WEEKLY TESTS
       // ===================================================
 
-      weeklyTests:
-        activeWeeklyTests,
+      weeklyTests: activeWeeklyTests,
 
       // ===================================================
       // EXAMS
       // ===================================================
 
-      exams,
+      exams: upcomingExamsLimited,
 
       // ===================================================
       // RECENT NOTES
@@ -447,37 +540,26 @@ const getStudentDashboard = async (req, res) => {
       dailyPlanner: {
         date: startOfToday,
 
-        totalTasks:
-          totalPlannerTasks,
+        totalTasks: totalPlannerTasks,
 
-        completedTasks:
-          completedPlannerTasks,
+        completedTasks: completedPlannerTasks,
 
-        pendingTasks:
-          pendingPlannerTasks,
+        pendingTasks: pendingPlannerTasks,
 
-        completionPercentage:
-          plannerCompletionPercentage,
+        completionPercentage: plannerCompletionPercentage,
 
         tasks: todayPlans,
       },
     });
-
   } catch (error) {
-    console.error(
-      "Student Dashboard Error:",
-      error
-    );
+    console.error("Student Dashboard Error:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to load student dashboard.",
 
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : undefined,
+      message: "Failed to load student dashboard.",
+
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };

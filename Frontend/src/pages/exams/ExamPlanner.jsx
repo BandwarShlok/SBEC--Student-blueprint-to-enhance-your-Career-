@@ -12,10 +12,28 @@ import {
   FaSave,
   FaCalendarAlt,
   FaClock,
+  FaHourglassHalf,
+  FaStickyNote,
 } from "react-icons/fa";
 
 // IMPORTANT: correct path
 import API_URL from "../../config/api";
+
+/* =========================================================
+   STUDENT AUTH HELPERS
+========================================================= */
+
+const getStudentToken = () =>
+  localStorage.getItem("sbec_token") || localStorage.getItem("token") || "";
+
+const getStudentHeaders = (includeJson = false) => {
+  const token = getStudentToken();
+
+  return {
+    ...(includeJson ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
 
 /* =========================================================
    HELPERS
@@ -48,9 +66,12 @@ const EMPTY_FORM = {
   title: "",
   subject: "",
   examDate: "",
+  examTime: "",
   year: "",
   semester: "",
   duration: "180",
+  examType: "University",
+  notes: "",
 };
 
 /* =========================================================
@@ -90,6 +111,54 @@ const formatDateForInput = (date) => {
 };
 
 /* =========================================================
+   PLANNER CALCULATION HELPERS
+========================================================= */
+
+const startOfDay = (value = new Date()) => {
+  const date = value instanceof Date ? new Date(value) : new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const getDaysRemaining = (examDate) => {
+  if (!examDate) return null;
+
+  const target = startOfDay(examDate);
+  if (Number.isNaN(target.getTime())) return null;
+
+  const today = startOfDay();
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+};
+
+const getExamStatus = (examDate) => {
+  const days = getDaysRemaining(examDate);
+
+  if (days === null) return "Unknown";
+  if (days < 0) return "Completed";
+  if (days === 0) return "Today";
+  if (days <= 7) return "This Week";
+  return "Upcoming";
+};
+
+const getMonthKey = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const getDateKey = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+};
+
+const formatMonthYear = (date) =>
+  date.toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
+/* =========================================================
    COMPONENT
 ========================================================= */
 
@@ -124,10 +193,18 @@ function ExamPlanner() {
 
   const fetchExams = async () => {
     try {
+      const token = getStudentToken();
+
+      if (!token) {
+        throw new Error("Student login session not found. Please login again.");
+      }
+
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${API_URL}/api/admin/exams`);
+      const response = await fetch(`${API_URL}/api/exam-planner`, {
+        headers: getStudentHeaders(),
+      });
 
       const data = await response.json();
 
@@ -161,7 +238,9 @@ function ExamPlanner() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`${API_URL}/api/admin/exams`);
+        const response = await fetch(`${API_URL}/api/exam-planner`, {
+          headers: getStudentHeaders(),
+        });
 
         const data = await response.json();
 
@@ -217,6 +296,78 @@ function ExamPlanner() {
       return text.includes(query);
     });
   }, [exams, search]);
+
+  /* =========================================================
+     PLANNER CALCULATIONS
+  ========================================================= */
+
+  const today = useMemo(() => startOfDay(), []);
+
+  const upcomingExams = useMemo(() => {
+    return [...exams]
+      .filter((exam) => {
+        const days = getDaysRemaining(getExamDate(exam));
+        return days !== null && days >= 0;
+      })
+      .sort((a, b) => {
+        return (
+          new Date(getExamDate(a)).getTime() -
+          new Date(getExamDate(b)).getTime()
+        );
+      });
+  }, [exams]);
+
+  const completedExams = useMemo(() => {
+    return exams.filter((exam) => {
+      const days = getDaysRemaining(getExamDate(exam));
+      return days !== null && days < 0;
+    });
+  }, [exams]);
+
+  const nextExam = upcomingExams[0] || null;
+
+  const thisMonthExams = useMemo(() => {
+    const currentMonth = getMonthKey(today);
+    return exams.filter(
+      (exam) => getMonthKey(getExamDate(exam)) === currentMonth,
+    );
+  }, [exams, today]);
+
+  const filteredUpcomingExams = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return upcomingExams;
+
+    return upcomingExams.filter((exam) => {
+      const text =
+        `${getTitle(exam)} ${getSubject(exam)} ${getYear(exam)} ${getSemester(exam)} ${getExamDate(exam)} ${exam?.examType || ""}`.toLowerCase();
+      return text.includes(query);
+    });
+  }, [upcomingExams, search]);
+
+  const calendarData = useMemo(() => {
+    const baseDate = nextExam ? new Date(getExamDate(nextExam)) : new Date();
+
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startOffset = firstDay.getDay();
+    const cells = [];
+
+    for (let i = 0; i < startOffset; i += 1) cells.push(null);
+    for (let day = 1; day <= daysInMonth; day += 1) cells.push(day);
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const examsByDate = {};
+    exams.forEach((exam) => {
+      const key = getDateKey(getExamDate(exam));
+      if (!key) return;
+      examsByDate[key] = examsByDate[key] || [];
+      examsByDate[key].push(exam);
+    });
+
+    return { year, month, cells, examsByDate };
+  }, [exams, nextExam]);
 
   /* =========================================================
      INPUT CHANGE
@@ -279,6 +430,9 @@ function ExamPlanner() {
       semester: getSemester(exam),
 
       duration: getDuration(exam) ? String(getDuration(exam)) : "180",
+      examTime: exam?.examTime || "",
+      examType: exam?.examType || "University",
+      notes: exam?.notes || "",
     });
 
     setError("");
@@ -314,6 +468,11 @@ function ExamPlanner() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (!getStudentToken()) {
+      setError("Student login session not found. Please login again.");
+      return;
+    }
 
     setError("");
     setSuccess("");
@@ -353,23 +512,21 @@ function ExamPlanner() {
 
       const payload = {
         title: formData.title.trim(),
-
         subject: formData.subject,
-
         examDate: formData.examDate,
-
+        examTime: formData.examTime || "",
         year: Number(formData.year),
-
         semester: formData.semester,
-
         duration: formData.duration ? Number(formData.duration) : 180,
+        examType: formData.examType || "University",
+        notes: formData.notes.trim(),
       };
 
       const isEdit = Boolean(editingId);
 
       const url = isEdit
-        ? `${API_URL}/api/admin/exams/${editingId}`
-        : `${API_URL}/api/admin/exams`;
+        ? `${API_URL}/api/exam-planner/${editingId}`
+        : `${API_URL}/api/exam-planner`;
 
       const method = isEdit ? "PUT" : "POST";
 
@@ -380,9 +537,7 @@ function ExamPlanner() {
       const response = await fetch(url, {
         method,
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getStudentHeaders(true),
 
         body: JSON.stringify(payload),
       });
@@ -444,6 +599,12 @@ function ExamPlanner() {
       return;
     }
 
+    if (!getStudentToken()) {
+      setDeleteTarget(null);
+      setError("Student login session not found. Please login again.");
+      return;
+    }
+
     const id = getId(deleteTarget);
 
     if (!id) {
@@ -460,8 +621,9 @@ function ExamPlanner() {
       setError("");
       setSuccess("");
 
-      const response = await fetch(`${API_URL}/api/admin/exams/${id}`, {
+      const response = await fetch(`${API_URL}/api/exam-planner/${id}`, {
         method: "DELETE",
+        headers: getStudentHeaders(),
       });
 
       const data = await response.json();
@@ -498,10 +660,10 @@ function ExamPlanner() {
 
       <div className="exam-header" style={styles.header}>
         <div>
-          <h1 style={styles.title}>Exam Data</h1>
+          <h1 style={styles.title}>Exam Planner</h1>
 
           <p style={styles.subtitle}>
-            Create and manage examinations for students.
+            Plan and manage your upcoming examinations.
           </p>
         </div>
 
@@ -783,6 +945,67 @@ function ExamPlanner() {
               <small style={styles.help}>Duration in minutes.</small>
             </div>
 
+            {/* EXAM TIME */}
+
+            <div style={styles.field}>
+              <label style={styles.label}>Exam Time</label>
+
+              <div style={styles.dateInputWrapper}>
+                <FaClock style={styles.dateIcon} />
+
+                <input
+                  type="time"
+                  name="examTime"
+                  value={formData.examTime}
+                  onChange={handleChange}
+                  style={styles.dateInput}
+                />
+              </div>
+
+              <small style={styles.help}>
+                Optional examination start time.
+              </small>
+            </div>
+
+            {/* EXAM TYPE */}
+
+            <div style={styles.field}>
+              <label style={styles.label}>Exam Type</label>
+
+              <select
+                name="examType"
+                value={formData.examType}
+                onChange={handleChange}
+                style={styles.input}
+              >
+                <option value="University">University</option>
+                <option value="Internal">Internal</option>
+                <option value="Practical">Practical</option>
+                <option value="Viva">Viva</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* NOTES */}
+
+            <div className="exam-full-field" style={styles.fullField}>
+              <label style={styles.label}>Notes</label>
+
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                placeholder="Add any preparation notes or important details..."
+                style={styles.textarea}
+                maxLength={1000}
+                rows={4}
+              />
+
+              <small style={styles.help}>
+                Optional notes for this examination.
+              </small>
+            </div>
+
             {/* ACTIONS */}
 
             <div className="exam-form-actions" style={styles.formActions}>
@@ -814,20 +1037,19 @@ function ExamPlanner() {
         </div>
       )}
 
-      {/* STATS */}
+      {/* PLANNER SUMMARY */}
 
       <div className="exam-stats" style={styles.stats}>
         <div style={styles.statCard}>
           <div style={styles.statIcon}>
             <FaClipboardList />
           </div>
-
           <div>
-            <span style={styles.statLabel}>Total Exams</span>
-
-            <strong style={styles.statNumber}>{exams.length}</strong>
-
-            <small style={styles.statSmall}>All examinations</small>
+            <span style={styles.statLabel}>Upcoming Exams</span>
+            <strong style={styles.statNumber}>{upcomingExams.length}</strong>
+            <small style={styles.statSmall}>
+              {completedExams.length} completed
+            </small>
           </div>
         </div>
 
@@ -839,35 +1061,109 @@ function ExamPlanner() {
               color: "#6EE7B7",
             }}
           >
+            <FaCalendarAlt />
+          </div>
+          <div>
+            <span style={styles.statLabel}>This Month</span>
+            <strong style={styles.statNumber}>{thisMonthExams.length}</strong>
+            <small style={styles.statSmall}>Exams scheduled</small>
+          </div>
+        </div>
+
+        <div style={styles.statCard}>
+          <div
+            style={{
+              ...styles.statIcon,
+              background: "#422006",
+              color: "#FCD34D",
+            }}
+          >
+            <FaHourglassHalf />
+          </div>
+          <div>
+            <span style={styles.statLabel}>Next Exam</span>
+            <strong style={styles.statNumber}>
+              {nextExam
+                ? getDaysRemaining(getExamDate(nextExam)) === 0
+                  ? "Today"
+                  : `${getDaysRemaining(getExamDate(nextExam))}d`
+                : "—"}
+            </strong>
+            <small style={styles.statSmall}>
+              {nextExam ? getSubject(nextExam) : "No upcoming exam"}
+            </small>
+          </div>
+        </div>
+
+        <div style={styles.statCard}>
+          <div
+            style={{
+              ...styles.statIcon,
+              background: "#312E81",
+              color: "#C4B5FD",
+            }}
+          >
             <FaCheckCircle />
           </div>
-
           <div>
-            <span style={styles.statLabel}>Showing</span>
-
-            <strong style={styles.statNumber}>{filteredExams.length}</strong>
-
-            <small style={styles.statSmall}>Filtered exams</small>
+            <span style={styles.statLabel}>Total Exams</span>
+            <strong style={styles.statNumber}>{exams.length}</strong>
+            <small style={styles.statSmall}>All examinations</small>
           </div>
         </div>
       </div>
 
-      {/* EXAM LIST */}
+      {/* NEXT EXAM */}
+
+      {nextExam && (
+        <div style={styles.nextExamCard}>
+          <div style={styles.nextExamIcon}>
+            <FaHourglassHalf />
+          </div>
+          <div style={styles.nextExamContent}>
+            <span style={styles.nextExamLabel}>NEXT EXAM</span>
+            <h2 style={styles.nextExamTitle}>{getTitle(nextExam)}</h2>
+            <div style={styles.nextExamMeta}>
+              <span>{getSubject(nextExam)}</span>
+              <span>•</span>
+              <span>{formatDate(getExamDate(nextExam))}</span>
+              {nextExam.examTime && (
+                <>
+                  <span>•</span>
+                  <span>{nextExam.examTime}</span>
+                </>
+              )}
+            </div>
+          </div>
+          <div style={styles.countdownBox}>
+            <strong>
+              {getDaysRemaining(getExamDate(nextExam)) === 0
+                ? "Today"
+                : getDaysRemaining(getExamDate(nextExam))}
+            </strong>
+            <span>
+              {getDaysRemaining(getExamDate(nextExam)) === 0
+                ? "Exam Day"
+                : "Days Left"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* UPCOMING EXAMS */}
 
       <div style={styles.card}>
         <div className="exam-card-header" style={styles.cardHeader}>
           <div>
-            <h2 style={styles.cardTitle}>All Exams</h2>
-
+            <h2 style={styles.cardTitle}>Upcoming Exams</h2>
             <p style={styles.cardSubtitle}>
-              {filteredExams.length} exam
-              {filteredExams.length !== 1 ? "s" : ""} available
+              {filteredUpcomingExams.length} upcoming exam
+              {filteredUpcomingExams.length !== 1 ? "s" : ""}
             </p>
           </div>
 
           <div className="exam-search" style={styles.search}>
             <FaSearch style={styles.searchIcon} />
-
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -880,83 +1176,257 @@ function ExamPlanner() {
         {loading ? (
           <div style={styles.center}>
             <FaSyncAlt style={styles.loading} />
-
             <p>Loading exams...</p>
           </div>
-        ) : filteredExams.length === 0 ? (
+        ) : filteredUpcomingExams.length === 0 ? (
           <div style={styles.center}>
             <FaClipboardList style={styles.emptyIcon} />
-
-            <h3>No exams found</h3>
-
-            <p>Add an exam to get started.</p>
+            <h3>
+              {search ? "No matching upcoming exams" : "No upcoming exams"}
+            </h3>
+            <p>
+              {search
+                ? "Try another search."
+                : "Add an exam to start planning."}
+            </p>
           </div>
         ) : (
           <div style={styles.examList}>
-            {filteredExams.map((exam, index) => (
-              <div
-                key={getId(exam) || index}
-                className="exam-item"
-                style={styles.exam}
-              >
-                <div style={styles.number}>{index + 1}</div>
+            {filteredUpcomingExams.map((exam, index) => {
+              const days = getDaysRemaining(getExamDate(exam));
+              const status = getExamStatus(getExamDate(exam));
 
-                <div className="exam-content" style={styles.examContent}>
-                  <h3 style={styles.examTitle}>{getTitle(exam)}</h3>
+              return (
+                <div
+                  key={getId(exam) || index}
+                  className="exam-item"
+                  style={styles.exam}
+                >
+                  <div style={styles.number}>{index + 1}</div>
 
-                  <div style={styles.badges}>
-                    {getSubject(exam) && (
-                      <span style={styles.subject}>{getSubject(exam)}</span>
-                    )}
-
-                    <span style={styles.dateBadge}>
-                      <FaCalendarAlt />
-
-                      {getExamDate(exam)
-                        ? formatDate(getExamDate(exam))
-                        : "Date not set"}
-                    </span>
-
-                    {getYear(exam) && (
-                      <span style={styles.badge}>{getYear(exam)}</span>
-                    )}
-
-                    {getSemester(exam) && (
-                      <span style={styles.badge}>
-                        Semester {getSemester(exam)}
+                  <div className="exam-content" style={styles.examContent}>
+                    <div style={styles.examTitleRow}>
+                      <h3 style={styles.examTitle}>{getTitle(exam)}</h3>
+                      <span
+                        style={
+                          days <= 7
+                            ? styles.urgentStatus
+                            : styles.upcomingStatus
+                        }
+                      >
+                        {status}
                       </span>
-                    )}
+                    </div>
 
-                    {getDuration(exam) && (
-                      <span style={styles.badge}>
-                        <FaClock />
-                        {getDuration(exam)} min
+                    <div style={styles.badges}>
+                      {getSubject(exam) && (
+                        <span style={styles.subject}>{getSubject(exam)}</span>
+                      )}
+                      <span style={styles.dateBadge}>
+                        <FaCalendarAlt />
+                        {formatDate(getExamDate(exam))}
                       </span>
+                      {exam.examTime && (
+                        <span style={styles.badge}>
+                          <FaClock />
+                          {exam.examTime}
+                        </span>
+                      )}
+                      {getSemester(exam) && (
+                        <span style={styles.badge}>
+                          Semester {getSemester(exam)}
+                        </span>
+                      )}
+                      {getDuration(exam) && (
+                        <span style={styles.badge}>
+                          <FaClock />
+                          {getDuration(exam)} min
+                        </span>
+                      )}
+                      {exam.examType && (
+                        <span style={styles.badge}>{exam.examType}</span>
+                      )}
+                    </div>
+
+                    {exam.notes && (
+                      <div style={styles.notesPreview}>
+                        <FaStickyNote />
+                        <span>{exam.notes}</span>
+                      </div>
                     )}
                   </div>
-                </div>
 
-                <div className="exam-actions" style={styles.actions}>
-                  <button
-                    style={styles.edit}
-                    onClick={() => openEditForm(exam)}
-                    title="Edit"
-                  >
-                    <FaEdit />
-                  </button>
+                  <div style={styles.countdownMini}>
+                    <strong>{days === 0 ? "Today" : days}</strong>
+                    <span>{days === 0 ? "Exam" : "Days"}</span>
+                  </div>
 
-                  <button
-                    style={styles.delete}
-                    onClick={() => askDelete(exam)}
-                    title="Delete"
-                  >
-                    <FaTrash />
-                  </button>
+                  <div className="exam-actions" style={styles.actions}>
+                    <button
+                      style={styles.edit}
+                      onClick={() => openEditForm(exam)}
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      style={styles.delete}
+                      onClick={() => askDelete(exam)}
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
+      </div>
+
+      {/* CALENDAR + NEXT EXAM DETAILS */}
+
+      <div className="exam-bottom-grid" style={styles.bottomGrid}>
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div>
+              <h2 style={styles.cardTitle}>Exam Calendar</h2>
+              <p style={styles.cardSubtitle}>
+                {formatMonthYear(
+                  new Date(calendarData.year, calendarData.month, 1),
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="calendar-grid" style={styles.calendarGrid}>
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} style={styles.calendarWeekday}>
+                {day}
+              </div>
+            ))}
+            {calendarData.cells.map((day, index) => {
+              const key = day
+                ? `${calendarData.year}-${String(calendarData.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                : `empty-${index}`;
+              const dayExams = day ? calendarData.examsByDate[key] || [] : [];
+              const isToday = day && getDateKey(today) === key;
+
+              return (
+                <div
+                  key={key}
+                  style={{
+                    ...styles.calendarDay,
+                    ...(isToday ? styles.calendarToday : {}),
+                    ...(dayExams.length ? styles.calendarHasExam : {}),
+                  }}
+                >
+                  {day && (
+                    <>
+                      <span>{day}</span>
+                      {dayExams.length > 0 && (
+                        <i style={styles.calendarDot}>{dayExams.length}</i>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div>
+              <h2 style={styles.cardTitle}>Next Exam Details</h2>
+              <p style={styles.cardSubtitle}>
+                Your nearest scheduled examination
+              </p>
+            </div>
+          </div>
+
+          {nextExam ? (
+            <div style={styles.detailPanel}>
+              <h3 style={styles.detailTitle}>{getTitle(nextExam)}</h3>
+              <div style={styles.detailRows}>
+                <div>
+                  <span>Subject</span>
+                  <strong>{getSubject(nextExam) || "—"}</strong>
+                </div>
+                <div>
+                  <span>Date</span>
+                  <strong>{formatDate(getExamDate(nextExam))}</strong>
+                </div>
+                <div>
+                  <span>Time</span>
+                  <strong>{nextExam.examTime || "Not set"}</strong>
+                </div>
+                <div>
+                  <span>Duration</span>
+                  <strong>
+                    {getDuration(nextExam)
+                      ? `${getDuration(nextExam)} minutes`
+                      : "Not set"}
+                  </strong>
+                </div>
+                <div>
+                  <span>Type</span>
+                  <strong>{nextExam.examType || "University"}</strong>
+                </div>
+                <div>
+                  <span>Semester</span>
+                  <strong>{getSemester(nextExam) || "—"}</strong>
+                </div>
+              </div>
+              {nextExam.notes && (
+                <div style={styles.detailNotes}>
+                  <FaStickyNote />
+                  <div>
+                    <span>Notes</span>
+                    <p>{nextExam.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={styles.centerSmall}>
+              <FaCalendarAlt style={styles.emptyIcon} />
+              <p>Add your first exam to see its details here.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ALL EXAMS / HISTORY */}
+
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div>
+            <h2 style={styles.cardTitle}>Exam Overview</h2>
+            <p style={styles.cardSubtitle}>
+              {exams.length} total examination{exams.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+
+        <div style={styles.overviewGrid}>
+          <div style={styles.overviewItem}>
+            <span>Upcoming</span>
+            <strong>{upcomingExams.length}</strong>
+          </div>
+          <div style={styles.overviewItem}>
+            <span>This Month</span>
+            <strong>{thisMonthExams.length}</strong>
+          </div>
+          <div style={styles.overviewItem}>
+            <span>Completed</span>
+            <strong>{completedExams.length}</strong>
+          </div>
+          <div style={styles.overviewItem}>
+            <span>Filtered</span>
+            <strong>{filteredExams.length}</strong>
+          </div>
+        </div>
       </div>
 
       {/* =====================================================
@@ -1018,6 +1488,21 @@ function ExamPlanner() {
 
           .sbec-delete-modal {
             animation: sbecModalIn 0.2s ease-out;
+          }
+
+          .countdownBox strong { display: block; color: #FFFFFF; font-size: 23px; line-height: 1; }
+          .countdownBox span { display: block; margin-top: 5px; color: #94A3B8; font-size: 10px; }
+          .countdownMini strong { display: block; color: #FFFFFF; font-size: 16px; line-height: 1; }
+          .countdownMini span { display: block; margin-top: 4px; color: #64748B; font-size: 9px; }
+          .detailRows > div { display: flex; flex-direction: column; gap: 4px; }
+          .detailRows > div > span { color: #64748B; font-size: 10px; }
+          .detailRows > div > strong { color: #CBD5E1; font-size: 12px; }
+          .detailNotes > div > span { display: block; color: #64748B; font-size: 10px; margin-bottom: 3px; }
+          .detailNotes > div > p { margin: 0; color: #CBD5E1; line-height: 1.5; }
+
+          @media (max-width: 900px) {
+            .exam-bottom-grid { grid-template-columns: 1fr !important; }
+            .overviewGrid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           }
 
           @media (max-width: 900px) {
@@ -1085,6 +1570,14 @@ function ExamPlanner() {
               justify-content: flex-end !important;
               padding-top: 5px !important;
             }
+          }
+
+          @media (max-width: 600px) {
+            .nextExamCard { align-items: flex-start !important; flex-wrap: wrap !important; }
+            .countdownBox { margin-left: 70px !important; width: calc(100% - 70px) !important; box-sizing: border-box !important; }
+            .countdownMini { min-width: 50px !important; }
+            .overviewGrid { grid-template-columns: 1fr 1fr !important; }
+            .detailRows { grid-template-columns: 1fr !important; }
           }
 
           @media (max-width: 600px) {
@@ -1348,6 +1841,202 @@ const styles = {
     gap: "8px",
   },
 
+  nextExamCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: "18px",
+    background: "linear-gradient(135deg,#17134A,#111827)",
+    border: "1px solid #4C1D95",
+    borderRadius: "16px",
+    padding: "20px",
+    marginBottom: "20px",
+    boxShadow: "0 14px 35px rgba(76,29,149,0.18)",
+  },
+  nextExamIcon: {
+    width: "52px",
+    height: "52px",
+    minWidth: "52px",
+    borderRadius: "14px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#4C1D95",
+    color: "#C4B5FD",
+    fontSize: "21px",
+  },
+  nextExamContent: { flex: 1, minWidth: 0 },
+  nextExamLabel: {
+    color: "#A78BFA",
+    fontSize: "11px",
+    fontWeight: "800",
+    letterSpacing: "1.2px",
+  },
+  nextExamTitle: {
+    margin: "5px 0",
+    color: "#FFFFFF",
+    fontSize: "20px",
+    fontWeight: "800",
+  },
+  nextExamMeta: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    color: "#94A3B8",
+    fontSize: "12px",
+  },
+  countdownBox: {
+    minWidth: "95px",
+    textAlign: "center",
+    padding: "12px",
+    borderRadius: "12px",
+    background: "rgba(124,58,237,0.14)",
+    border: "1px solid #4C1D95",
+  },
+  countdownBoxStrong: {},
+  countdownMini: {
+    minWidth: "55px",
+    textAlign: "center",
+    padding: "7px 9px",
+    borderRadius: "9px",
+    background: "#111827",
+    border: "1px solid #334155",
+    marginLeft: "auto",
+  },
+  examTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+  urgentStatus: {
+    padding: "4px 8px",
+    borderRadius: "999px",
+    background: "#450A0A",
+    color: "#FCA5A5",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
+  upcomingStatus: {
+    padding: "4px 8px",
+    borderRadius: "999px",
+    background: "#312E81",
+    color: "#C4B5FD",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
+  notesPreview: {
+    display: "flex",
+    gap: "7px",
+    alignItems: "flex-start",
+    marginTop: "9px",
+    color: "#64748B",
+    fontSize: "11px",
+    lineHeight: 1.5,
+  },
+  bottomGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0,1.2fr) minmax(0,0.8fr)",
+    gap: "20px",
+    marginBottom: "20px",
+  },
+  calendarGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(7, minmax(0,1fr))",
+    gap: "6px",
+  },
+  calendarWeekday: {
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: "10px",
+    fontWeight: "700",
+    padding: "6px 0",
+  },
+  calendarDay: {
+    minHeight: "44px",
+    borderRadius: "8px",
+    background: "#111827",
+    border: "1px solid #1E293B",
+    color: "#CBD5E1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    fontSize: "12px",
+  },
+  calendarToday: {
+    border: "1px solid #8B5CF6",
+    boxShadow: "inset 0 0 0 1px #8B5CF6",
+  },
+  calendarHasExam: { background: "#21164D", color: "#DDD6FE" },
+  calendarDot: {
+    position: "absolute",
+    bottom: "4px",
+    right: "5px",
+    minWidth: "13px",
+    height: "13px",
+    borderRadius: "999px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#7C3AED",
+    color: "#FFFFFF",
+    fontSize: "8px",
+    fontStyle: "normal",
+  },
+  detailPanel: {
+    background: "#0B1220",
+    border: "1px solid #1E293B",
+    borderRadius: "12px",
+    padding: "16px",
+  },
+  detailTitle: {
+    margin: "0 0 15px",
+    color: "#FFFFFF",
+    fontSize: "17px",
+    fontWeight: "800",
+  },
+  detailRows: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+    gap: "12px",
+  },
+  detailRowsItem: {},
+  detailNotes: {
+    display: "flex",
+    gap: "10px",
+    marginTop: "16px",
+    paddingTop: "14px",
+    borderTop: "1px solid #1E293B",
+    color: "#A78BFA",
+    fontSize: "12px",
+  },
+  detailNotesSpan: {},
+  detailNotesP: {},
+  centerSmall: {
+    minHeight: "170px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: "13px",
+  },
+  overviewGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4,minmax(0,1fr))",
+    gap: "10px",
+  },
+  overviewItem: {
+    padding: "14px",
+    background: "#0B1220",
+    border: "1px solid #1E293B",
+    borderRadius: "10px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "5px",
+  },
+
   formCard: {
     background: "#0F172A",
     border: "1px solid #312E81",
@@ -1411,6 +2100,21 @@ const styles = {
     fontSize: "12px",
     fontWeight: "600",
     marginBottom: "7px",
+  },
+
+  textarea: {
+    width: "100%",
+    boxSizing: "border-box",
+    background: "#020617",
+    border: "1px solid #334155",
+    borderRadius: "9px",
+    color: "#FFFFFF",
+    padding: "12px",
+    outline: "none",
+    fontSize: "13px",
+    resize: "vertical",
+    fontFamily: "inherit",
+    lineHeight: 1.5,
   },
 
   input: {

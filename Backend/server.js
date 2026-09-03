@@ -64,6 +64,14 @@ const dailyPlannerRoutes = require("./routes/dailyPlannerRoutes");
 
 /*
 =========================================================
+STUDENT EXAM PLANNER
+=========================================================
+*/
+
+const studentExamRoutes = require("./routes/studentExamRoutes");
+
+/*
+=========================================================
 PROFILE ROUTE
 =========================================================
 */
@@ -236,6 +244,12 @@ Student Daily Planner
 app.use("/api/daily-planner", dailyPlannerRoutes);
 
 /*
+Student Exam Planner
+*/
+
+app.use("/api/exam-planner", studentExamRoutes);
+
+/*
 Student Profile
 */
 
@@ -325,6 +339,8 @@ app.get("/api", (req, res) => {
 
       dailyPlanner: "/api/daily-planner",
 
+      studentExamPlanner: "/api/exam-planner",
+
       profile: "/api/profile",
     },
   });
@@ -388,6 +404,8 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Local: http://localhost:${PORT}`);
 
   console.log(`Health: http://localhost:${PORT}/api/health`);
+
+  console.log("Student Exam Planner: /api/exam-planner");
 
   console.log("================================");
 });

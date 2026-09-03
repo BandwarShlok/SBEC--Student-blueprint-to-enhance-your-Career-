@@ -17,9 +17,7 @@ import API_URL from "../../../config/api";
 
 // API_URL is the backend root. Express mounts admin routes under /api.
 const API_ROOT = String(API_URL).replace(/\/+$/, "");
-const API_BASE_URL = API_ROOT.endsWith("/api")
-  ? API_ROOT
-  : `${API_ROOT}/api`;
+const API_BASE_URL = API_ROOT.endsWith("/api") ? API_ROOT : `${API_ROOT}/api`;
 
 const getNoteId = (note) => note?._id || note?.id || "";
 
@@ -43,6 +41,7 @@ function AdminNotes() {
     title: "",
     description: "",
     subject: "",
+    unit: "",
     year: "",
     semester: "",
     content: "",
@@ -184,10 +183,7 @@ function AdminNotes() {
 
         setLoading(true);
 
-        await Promise.all([
-          fetchNotes(),
-          fetchSubjects(),
-        ]);
+        await Promise.all([fetchNotes(), fetchSubjects()]);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -221,10 +217,7 @@ function AdminNotes() {
     setError("");
 
     try {
-      await Promise.all([
-        fetchNotes(),
-        fetchSubjects(),
-      ]);
+      await Promise.all([fetchNotes(), fetchSubjects()]);
 
       toast.success("Notes refreshed.");
     } catch (err) {
@@ -254,9 +247,7 @@ function AdminNotes() {
       const subjectName =
         typeof note.subject === "object"
           ? String(
-              note.subject?.name ||
-                note.subject?.title ||
-                "",
+              note.subject?.name || note.subject?.title || "",
             ).toLowerCase()
           : String(note.subject || "").toLowerCase();
 
@@ -274,8 +265,7 @@ function AdminNotes() {
             ? note.subject?._id || note.subject?.id
             : note.subject;
 
-        matchesSubject =
-          String(noteSubjectId) === String(subjectFilter);
+        matchesSubject = String(noteSubjectId) === String(subjectFilter);
       }
 
       return matchesSearch && matchesSubject;
@@ -293,6 +283,7 @@ function AdminNotes() {
       title: "",
       description: "",
       subject: "",
+      unit: "",
       year: "",
       semester: "",
       content: "",
@@ -318,6 +309,7 @@ function AdminNotes() {
       title: note.title || "",
       description: note.description || "",
       subject: subjectValue,
+      unit: note.unit || "",
       year: note.year || "",
       semester: note.semester || "",
       content: note.content || "",
@@ -361,6 +353,11 @@ function AdminNotes() {
       return;
     }
 
+    if (!form.unit) {
+      toast.error("Please select the unit.");
+      return;
+    }
+
     if (!form.year) {
       toast.error("Please select the year.");
       return;
@@ -399,6 +396,7 @@ function AdminNotes() {
           title: form.title.trim(),
           description: form.description.trim(),
           subject: form.subject,
+          unit: Number(form.unit),
           year: form.year,
           semester: form.semester,
           content: form.content.trim(),
@@ -409,15 +407,12 @@ function AdminNotes() {
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            `Failed to ${isEditing ? "update" : "create"} note.`,
+          data.message || `Failed to ${isEditing ? "update" : "create"} note.`,
         );
       }
 
       toast.success(
-        isEditing
-          ? "Note updated successfully."
-          : "Note added successfully.",
+        isEditing ? "Note updated successfully." : "Note added successfully.",
       );
 
       setShowModal(false);
@@ -427,10 +422,7 @@ function AdminNotes() {
     } catch (err) {
       console.error("Save Note Error:", err);
 
-      toast.error(
-        err.message ||
-          "Unable to save note.",
-      );
+      toast.error(err.message || "Unable to save note.");
     } finally {
       setSaving(false);
     }
@@ -455,20 +447,15 @@ function AdminNotes() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/admin/notes/${id}`,
-        {
-          method: "DELETE",
-          headers: getHeaders(),
-        },
-      );
+      const response = await fetch(`${API_BASE_URL}/admin/notes/${id}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      });
 
       const data = await readResponse(response);
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to delete note.",
-        );
+        throw new Error(data.message || "Failed to delete note.");
       }
 
       toast.success("Note deleted successfully.");
@@ -477,10 +464,7 @@ function AdminNotes() {
     } catch (err) {
       console.error("Delete Note Error:", err);
 
-      toast.error(
-        err.message ||
-          "Unable to delete note.",
-      );
+      toast.error(err.message || "Unable to delete note.");
     }
   };
 
@@ -496,24 +480,14 @@ function AdminNotes() {
     }
 
     if (typeof note.subject === "object") {
-      return (
-        note.subject.name ||
-        note.subject.title ||
-        "Unknown Subject"
-      );
+      return note.subject.name || note.subject.title || "Unknown Subject";
     }
 
     const found = subjects.find(
-      (subject) =>
-        String(subject._id || subject.id) ===
-        String(note.subject),
+      (subject) => String(subject._id || subject.id) === String(note.subject),
     );
 
-    return (
-      found?.name ||
-      found?.title ||
-      String(note.subject)
-    );
+    return found?.name || found?.title || String(note.subject);
   };
 
   const getSubjectId = (subject) => {
@@ -549,49 +523,34 @@ function AdminNotes() {
   return (
     <div className="admin-notes-page">
       <div className="admin-notes-container">
-
         {/* ============================================
             HEADER
         ============================================ */}
 
         <section className="page-header">
-
           <div className="page-header-text">
             <h1>Notes</h1>
 
-            <p>
-              View and manage study notes.
-            </p>
+            <p>View and manage study notes.</p>
           </div>
 
           <div className="header-actions">
-
             <button
               type="button"
               className="refresh-btn"
               onClick={handleRefresh}
               disabled={loading}
             >
-              <FaSyncAlt
-                className={loading ? "spin" : ""}
-              />
+              <FaSyncAlt className={loading ? "spin" : ""} />
 
-              <span>
-                {loading ? "Refreshing..." : "Refresh"}
-              </span>
+              <span>{loading ? "Refreshing..." : "Refresh"}</span>
             </button>
 
-            <button
-              type="button"
-              className="add-btn"
-              onClick={openAddModal}
-            >
+            <button type="button" className="add-btn" onClick={openAddModal}>
               <FaPlus />
               <span>Add Note</span>
             </button>
-
           </div>
-
         </section>
 
         {/* ============================================
@@ -602,10 +561,7 @@ function AdminNotes() {
           <div className="error-box">
             <span>{error}</span>
 
-            <button
-              type="button"
-              onClick={handleRefresh}
-            >
+            <button type="button" onClick={handleRefresh}>
               Try Again
             </button>
           </div>
@@ -616,9 +572,7 @@ function AdminNotes() {
         ============================================ */}
 
         <section className="stats-grid">
-
           <div className="stat-card">
-
             <div className="stat-icon purple">
               <FaStickyNote />
             </div>
@@ -626,19 +580,13 @@ function AdminNotes() {
             <div className="stat-info">
               <span>Total Notes</span>
 
-              <strong>
-                {loading ? "..." : totalNotes}
-              </strong>
+              <strong>{loading ? "..." : totalNotes}</strong>
 
-              <small>
-                All notes
-              </small>
+              <small>All notes</small>
             </div>
-
           </div>
 
           <div className="stat-card">
-
             <div className="stat-icon blue">
               <FaBook />
             </div>
@@ -646,21 +594,13 @@ function AdminNotes() {
             <div className="stat-info">
               <span>Subjects</span>
 
-              <strong>
-                {subjectsLoading
-                  ? "..."
-                  : uniqueSubjects}
-              </strong>
+              <strong>{subjectsLoading ? "..." : uniqueSubjects}</strong>
 
-              <small>
-                Available subjects
-              </small>
+              <small>Available subjects</small>
             </div>
-
           </div>
 
           <div className="stat-card">
-
             <div className="stat-icon green">
               <FaSearch />
             </div>
@@ -668,19 +608,11 @@ function AdminNotes() {
             <div className="stat-info">
               <span>Showing</span>
 
-              <strong>
-                {loading
-                  ? "..."
-                  : filteredNotes.length}
-              </strong>
+              <strong>{loading ? "..." : filteredNotes.length}</strong>
 
-              <small>
-                Filtered notes
-              </small>
+              <small>Filtered notes</small>
             </div>
-
           </div>
-
         </section>
 
         {/* ============================================
@@ -688,38 +620,29 @@ function AdminNotes() {
         ============================================ */}
 
         <section className="notes-section">
-
           <div className="notes-section-header">
-
             <div>
               <h2>All Notes</h2>
 
-              <p>
-                Notes loaded from your database.
-              </p>
+              <p>Notes loaded from your database.</p>
             </div>
 
             <div className="result-count">
               {filteredNotes.length} of {notes.length}
             </div>
-
           </div>
 
           {/* SEARCH */}
 
           <div className="filters">
-
             <div className="search-box">
-
               <FaSearch />
 
               <input
                 type="text"
                 placeholder="Search notes..."
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
+                onChange={(e) => setSearch(e.target.value)}
               />
 
               {search && (
@@ -731,39 +654,29 @@ function AdminNotes() {
                   <FaTimes />
                 </button>
               )}
-
             </div>
 
             <div className="select-box">
-
               <FaBook />
 
               <select
                 value={subjectFilter}
-                onChange={(e) =>
-                  setSubjectFilter(e.target.value)
-                }
+                onChange={(e) => setSubjectFilter(e.target.value)}
               >
-                <option value="all">
-                  All Subjects
-                </option>
+                <option value="all">All Subjects</option>
 
                 {subjects.map((subject) => (
                   <option
                     key={getSubjectId(subject)}
                     value={getSubjectId(subject)}
                   >
-                    {subject.name ||
-                      subject.title ||
-                      "Unnamed Subject"}
+                    {subject.name || subject.title || "Unnamed Subject"}
                   </option>
                 ))}
               </select>
 
               <FaChevronDown className="select-arrow" />
-
             </div>
-
           </div>
 
           {/* ============================================
@@ -772,29 +685,21 @@ function AdminNotes() {
 
           {loading ? (
             <div className="loading-state">
-
               <FaSyncAlt className="spin" />
 
-              <p>
-                Loading notes...
-              </p>
-
+              <p>Loading notes...</p>
             </div>
           ) : filteredNotes.length === 0 ? (
-
             /* ============================================
                EMPTY
             ============================================ */
 
             <div className="empty-state">
-
               <div className="empty-icon">
                 <FaStickyNote />
               </div>
 
-              <h3>
-                No Notes Found
-              </h3>
+              <h3>No Notes Found</h3>
 
               <p>
                 {search || subjectFilter !== "all"
@@ -802,48 +707,34 @@ function AdminNotes() {
                   : "No notes have been added yet."}
               </p>
 
-              {!search &&
-                subjectFilter === "all" && (
-                  <button
-                    type="button"
-                    onClick={openAddModal}
-                    className="empty-add-btn"
-                  >
-                    <FaPlus />
-                    Add First Note
-                  </button>
-                )}
-
+              {!search && subjectFilter === "all" && (
+                <button
+                  type="button"
+                  onClick={openAddModal}
+                  className="empty-add-btn"
+                >
+                  <FaPlus />
+                  Add First Note
+                </button>
+              )}
             </div>
           ) : (
-
             /* ============================================
                NOTES LIST
             ============================================ */
 
             <div className="notes-list">
-
               {filteredNotes.map((note) => (
-
-                <article
-                  className="note-card"
-                  key={getNoteId(note)}
-                >
-
+                <article className="note-card" key={getNoteId(note)}>
                   {/* TOP CONTENT */}
 
                   <div className="note-content-row">
-
                     <div className="note-icon">
                       <FaStickyNote />
                     </div>
 
                     <div className="note-main">
-
-                      <h3>
-                        {note.title ||
-                          "Untitled Note"}
-                      </h3>
+                      <h3>{note.title || "Untitled Note"}</h3>
 
                       <p className="note-description">
                         {note.description ||
@@ -852,40 +743,33 @@ function AdminNotes() {
                       </p>
 
                       <div className="note-meta">
-
                         <span className="subject-badge">
                           <FaBook />
                           {getSubjectName(note)}
                         </span>
 
                         {note.year && (
-                          <span className="meta-badge">
-                            {note.year}
-                          </span>
+                          <span className="meta-badge">{note.year}</span>
                         )}
 
                         {note.semester && (
-                          <span className="meta-badge">
-                            {note.semester}
-                          </span>
+                          <span className="meta-badge">{note.semester}</span>
                         )}
 
+                        {note.unit && (
+                          <span className="meta-badge">Unit {note.unit}</span>
+                        )}
                       </div>
-
                     </div>
-
                   </div>
 
                   {/* ACTIONS */}
 
                   <div className="note-actions">
-
                     <button
                       type="button"
                       className="edit-btn"
-                      onClick={() =>
-                        openEditModal(note)
-                      }
+                      onClick={() => openEditModal(note)}
                     >
                       <FaEdit />
                       <span>Edit</span>
@@ -894,25 +778,17 @@ function AdminNotes() {
                     <button
                       type="button"
                       className="delete-btn"
-                      onClick={() =>
-                        handleDelete(getNoteId(note))
-                      }
+                      onClick={() => handleDelete(getNoteId(note))}
                     >
                       <FaTrash />
                       <span>Delete</span>
                     </button>
-
                   </div>
-
                 </article>
-
               ))}
-
             </div>
           )}
-
         </section>
-
       </div>
 
       {/* ================================================
@@ -923,24 +799,15 @@ function AdminNotes() {
         <div
           className="modal-overlay"
           onMouseDown={(e) => {
-            if (
-              e.target === e.currentTarget
-            ) {
+            if (e.target === e.currentTarget) {
               closeModal();
             }
           }}
         >
-
           <div className="note-modal">
-
             <div className="modal-header">
-
               <div>
-                <h2>
-                  {editingNote
-                    ? "Edit Note"
-                    : "Add Note"}
-                </h2>
+                <h2>{editingNote ? "Edit Note" : "Add Note"}</h2>
 
                 <p>
                   {editingNote
@@ -957,21 +824,13 @@ function AdminNotes() {
               >
                 <FaTimes />
               </button>
-
             </div>
 
-            <form
-              className="note-form"
-              onSubmit={handleSubmit}
-            >
-
+            <form className="note-form" onSubmit={handleSubmit}>
               {/* TITLE */}
 
               <div className="form-group">
-
-                <label>
-                  Note Title
-                </label>
+                <label>Note Title</label>
 
                 <input
                   type="text"
@@ -981,16 +840,12 @@ function AdminNotes() {
                   onChange={handleChange}
                   required
                 />
-
               </div>
 
               {/* DESCRIPTION */}
 
               <div className="form-group">
-
-                <label>
-                  Description
-                </label>
+                <label>Description</label>
 
                 <input
                   type="text"
@@ -999,16 +854,12 @@ function AdminNotes() {
                   value={form.description}
                   onChange={handleChange}
                 />
-
               </div>
 
               {/* SUBJECT */}
 
               <div className="form-group">
-
-                <label>
-                  Subject
-                </label>
+                <label>Subject</label>
 
                 <select
                   name="subject"
@@ -1016,33 +867,44 @@ function AdminNotes() {
                   onChange={handleChange}
                   required
                 >
-
-                  <option value="">
-                    Select Subject
-                  </option>
+                  <option value="">Select Subject</option>
 
                   {subjects.map((subject) => (
                     <option
                       key={getSubjectId(subject)}
                       value={getSubjectId(subject)}
                     >
-                      {subject.name ||
-                        subject.title ||
-                        "Unnamed Subject"}
+                      {subject.name || subject.title || "Unnamed Subject"}
                     </option>
                   ))}
-
                 </select>
+              </div>
 
+              {/* UNIT */}
+
+              <div className="form-group">
+                <label>Unit</label>
+
+                <select
+                  name="unit"
+                  value={form.unit}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select Unit</option>
+
+                  {Array.from({ length: 20 }, (_, index) => (
+                    <option key={index + 1} value={index + 1}>
+                      Unit {index + 1}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* YEAR */}
 
               <div className="form-group">
-
-                <label>
-                  Year
-                </label>
+                <label>Year</label>
 
                 <select
                   name="year"
@@ -1050,23 +912,17 @@ function AdminNotes() {
                   onChange={handleChange}
                   required
                 >
-                  <option value="">
-                    Select Year
-                  </option>
+                  <option value="">Select Year</option>
                   <option value="FY">FY</option>
                   <option value="SY">SY</option>
                   <option value="TY">TY</option>
                 </select>
-
               </div>
 
               {/* SEMESTER */}
 
               <div className="form-group">
-
-                <label>
-                  Semester
-                </label>
+                <label>Semester</label>
 
                 <select
                   name="semester"
@@ -1074,9 +930,7 @@ function AdminNotes() {
                   onChange={handleChange}
                   required
                 >
-                  <option value="">
-                    Select Semester
-                  </option>
+                  <option value="">Select Semester</option>
                   <option value="1">Semester 1</option>
                   <option value="2">Semester 2</option>
                   <option value="3">Semester 3</option>
@@ -1084,16 +938,12 @@ function AdminNotes() {
                   <option value="5">Semester 5</option>
                   <option value="6">Semester 6</option>
                 </select>
-
               </div>
 
               {/* CONTENT */}
 
               <div className="form-group">
-
-                <label>
-                  Note Content
-                </label>
+                <label>Note Content</label>
 
                 <textarea
                   name="content"
@@ -1103,13 +953,11 @@ function AdminNotes() {
                   rows={7}
                   required
                 />
-
               </div>
 
               {/* MODAL ACTIONS */}
 
               <div className="modal-actions">
-
                 <button
                   type="button"
                   className="cancel-btn"
@@ -1119,11 +967,7 @@ function AdminNotes() {
                   Cancel
                 </button>
 
-                <button
-                  type="submit"
-                  className="save-btn"
-                  disabled={saving}
-                >
+                <button type="submit" className="save-btn" disabled={saving}>
                   {saving ? (
                     <>
                       <FaSyncAlt className="spin" />
@@ -1132,19 +976,13 @@ function AdminNotes() {
                   ) : (
                     <>
                       <FaSave />
-                      {editingNote
-                        ? "Update Note"
-                        : "Save Note"}
+                      {editingNote ? "Update Note" : "Save Note"}
                     </>
                   )}
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
       )}
 
