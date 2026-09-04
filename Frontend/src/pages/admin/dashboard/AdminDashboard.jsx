@@ -7,7 +7,6 @@ import {
   FaStickyNote,
   FaFileAlt,
   FaQuestionCircle,
-  FaClipboardCheck,
   FaCalendarAlt,
   FaArrowRight,
   FaSyncAlt,
@@ -214,13 +213,6 @@ function AdminDashboard() {
       icon: <FaQuestionCircle />,
       path: "/admin/quiz",
     },
-    {
-      title: "Weekly Tests",
-      value: loading ? "..." : (dashboardData?.stats?.totalWeeklyTests ?? 0),
-      text: "Created tests",
-      icon: <FaClipboardCheck />,
-      path: "/admin/weekly-tests",
-    },
   ];
 
   // ==========================================================
@@ -252,11 +244,6 @@ function AdminDashboard() {
       title: "Manage Quiz",
       icon: <FaQuestionCircle />,
       path: "/admin/quiz",
-    },
-    {
-      title: "Manage Weekly Tests",
-      icon: <FaClipboardCheck />,
-      path: "/admin/weekly-tests",
     },
   ];
 

@@ -20,7 +20,6 @@ import AdminSubjects from "../pages/admin/subjects/AdminSubjects";
 import AdminNotes from "../pages/admin/notes/AdminNotes";
 import AdminPapers from "../pages/admin/papers/AdminPapers";
 import AdminQuiz from "../pages/admin/quiz/AdminQuiz";
-import AdminWeeklyTests from "../pages/admin/weeklyTests/AdminWeeklyTests";
 import AdminExams from "../pages/admin/exams/AdminExams";
 import AdminSettings from "../pages/admin/settings/AdminSettings";
 
@@ -153,10 +152,6 @@ function AppRoutes() {
           {/* Quiz */}
 
           <Route path="/admin/quiz" element={<AdminQuiz />} />
-
-          {/* Weekly Tests */}
-
-          <Route path="/admin/weekly-tests" element={<AdminWeeklyTests />} />
 
           {/* =================================================
               ADMIN DAILY PLANNER
