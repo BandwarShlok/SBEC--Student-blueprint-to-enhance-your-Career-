@@ -8,7 +8,6 @@ import {
   FaStickyNote,
   FaFileAlt,
   FaQuestionCircle,
-  FaClipboardCheck,
   FaCalendarAlt,
   FaChartLine,
   FaCog,
@@ -74,12 +73,6 @@ function AdminSidebar() {
       name: "Quiz Questions",
       path: "/admin/quiz",
       icon: <FaQuestionCircle />,
-    },
-
-    {
-      name: "Weekly Tests",
-      path: "/admin/weekly-tests",
-      icon: <FaClipboardCheck />,
     },
 
     {
