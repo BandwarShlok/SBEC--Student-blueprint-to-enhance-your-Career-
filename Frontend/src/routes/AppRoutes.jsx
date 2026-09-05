@@ -27,7 +27,6 @@ import AdminSettings from "../pages/admin/settings/AdminSettings";
    ADMIN DAILY PLANNER
 ========================================================= */
 
-import AdminDailyPlanner from "../pages/admin/dailyPlanner/AdminDailyPlanner";
 import AdminPlannerActivity from "../pages/admin/dailyPlanner/AdminPlannerActivity";
 
 /* =========================================================
@@ -43,8 +42,8 @@ import AIStudyAssistant from "../pages/ai/AIStudyAssistant";
 import ExamPlanner from "../pages/exams/ExamPlanner";
 import PreviousYearPapers from "../pages/papers/PreviousYearPapers";
 import Quiz from "../pages/quiz/Quiz";
-import WeeklyTest from "../pages/quiz/WeeklyTest";
 import DailyPlanner from "../pages/daily-planner/DailyPlanner";
+import StudentSettings from "../pages/settings/StudentSettings";
 
 /* =========================================================
    APP ROUTES
@@ -109,9 +108,9 @@ function AppRoutes() {
 
           <Route path="/quiz" element={<Quiz />} />
 
-          {/* Weekly Test */}
+          {/* Settings */}
 
-          <Route path="/weekly-test" element={<WeeklyTest />} />
+          <Route path="/settings" element={<StudentSettings />} />
 
           {/* Profile */}
 
@@ -152,12 +151,6 @@ function AppRoutes() {
           {/* Quiz */}
 
           <Route path="/admin/quiz" element={<AdminQuiz />} />
-
-          {/* =================================================
-              ADMIN DAILY PLANNER
-          ================================================= */}
-
-          <Route path="/admin/daily-planner" element={<AdminDailyPlanner />} />
 
           {/* =================================================
               ADMIN PLANNER ACTIVITY

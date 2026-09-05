@@ -3,15 +3,20 @@ const Subject = require("../models/Subject");
 const Note = require("../models/Note");
 const Paper = require("../models/Paper");
 const QuizQuestion = require("../models/QuizQuestion");
-const WeeklyTest = require("../models/WeeklyTest");
 const Exam = require("../models/Exam");
 const DailyPlan = require("../models/DailyPlan");
+const UnitProgress = require("../models/UnitProgress");
+const QuizResult = require("../models/QuizResult");
+
+// ============================================================
+// GET STUDENT DASHBOARD
+// ============================================================
 
 const getStudentDashboard = async (req, res) => {
   try {
-    // =====================================================
-    // CURRENT STUDENT
-    // =====================================================
+    // ==========================================================
+    // STUDENT ID
+    // ==========================================================
 
     const studentId = req.user?._id || req.user?.id;
 
@@ -22,7 +27,11 @@ const getStudentDashboard = async (req, res) => {
       });
     }
 
-    const student = await User.findById(studentId).select("-password");
+    // ==========================================================
+    // STUDENT
+    // ==========================================================
+
+    const student = await User.findById(studentId).select("-password").lean();
 
     if (!student) {
       return res.status(404).json({
@@ -31,57 +40,138 @@ const getStudentDashboard = async (req, res) => {
       });
     }
 
-    // =====================================================
-    // STUDENT ACADEMIC DETAILS
-    // =====================================================
+    // ==========================================================
+    // STUDENT YEAR / SEMESTER
+    // ==========================================================
 
-    const studentYear = student.year || "";
+    const studentYear = String(student.year || "").trim();
 
-    const studentSemester = student.semester || "";
+    const studentSemester = String(student.semester || "").trim();
 
-    const studentCourse = student.course || "BSc Computer Science";
-
-    // =====================================================
-    // TODAY'S DATE
-    // =====================================================
-
-    const today = new Date();
-
-    const startOfToday = new Date(today);
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
-
-    // =====================================================
+    // ==========================================================
     // SUBJECTS
-    // =====================================================
+    //
+    // First try:
+    // Year + Semester
+    //
+    // Then:
+    // Year
+    //
+    // Then:
+    // Semester
+    //
+    // Finally:
+    // All active subjects
+    // ==========================================================
 
-    const subjectFilter = {
-      isActive: true,
+    const activeSubjectFilter = {
+      isActive: {
+        $ne: false,
+      },
     };
 
-    if (studentYear) {
-      subjectFilter.year = studentYear;
-    }
+    let subjects = [];
 
-    if (studentSemester) {
-      subjectFilter.semester = studentSemester;
-    }
+    // ==========================================================
+    // 1. YEAR + SEMESTER
+    // ==========================================================
 
-    if (studentCourse) {
-      subjectFilter.course = studentCourse;
-    }
-
-    const subjects = await Subject.find(subjectFilter)
-      .sort({
-        name: 1,
+    if (studentYear && studentSemester) {
+      subjects = await Subject.find({
+        ...activeSubjectFilter,
+        year: studentYear,
+        semester: studentSemester,
       })
-      .lean();
+        .sort({
+          name: 1,
+        })
+        .lean();
+    }
 
-    // =====================================================
-    // NOTES
-    // =====================================================
+    // ==========================================================
+    // 2. YEAR ONLY
+    // ==========================================================
+
+    if (subjects.length === 0 && studentYear) {
+      subjects = await Subject.find({
+        ...activeSubjectFilter,
+        year: studentYear,
+      })
+        .sort({
+          name: 1,
+        })
+        .lean();
+    }
+
+    // ==========================================================
+    // 3. SEMESTER ONLY
+    // ==========================================================
+
+    if (subjects.length === 0 && studentSemester) {
+      subjects = await Subject.find({
+        ...activeSubjectFilter,
+        semester: studentSemester,
+      })
+        .sort({
+          name: 1,
+        })
+        .lean();
+    }
+
+    // ==========================================================
+    // 4. ALL ACTIVE SUBJECTS
+    // ==========================================================
+
+    if (subjects.length === 0) {
+      subjects = await Subject.find(activeSubjectFilter)
+        .sort({
+          name: 1,
+        })
+        .lean();
+    }
+
+    // ==========================================================
+    // SUBJECT IDS
+    // ==========================================================
+
+    const subjectIds = subjects.map((subject) => subject._id);
+
+    // ==========================================================
+    // GET COMPLETED UNIT PROGRESS
+    // ==========================================================
+
+    const completedProgress =
+      subjectIds.length > 0
+        ? await UnitProgress.find({
+            user: studentId,
+
+            subject: {
+              $in: subjectIds,
+            },
+
+            completed: true,
+          }).lean()
+        : [];
+
+    // ==========================================================
+    // GROUP COMPLETED UNITS BY SUBJECT
+    // ==========================================================
+
+    const completedUnitsBySubject = new Map();
+
+    completedProgress.forEach((item) => {
+      const subjectId = String(item.subject);
+
+      if (!completedUnitsBySubject.has(subjectId)) {
+        completedUnitsBySubject.set(subjectId, new Set());
+      }
+
+      completedUnitsBySubject.get(subjectId).add(String(item.unitId));
+    });
+
+    // ==========================================================
+    // NOTES FILTER
+    // ==========================================================
 
     const noteFilter = {};
 
@@ -93,273 +183,252 @@ const getStudentDashboard = async (req, res) => {
       noteFilter.semester = studentSemester;
     }
 
+    // ==========================================================
+    // TOTAL NOTES
+    // ==========================================================
+
     const totalNotes = await Note.countDocuments(noteFilter);
 
-    // =====================================================
-    // PREVIOUS PAPERS
-    // =====================================================
+    // ==========================================================
+    // PAPERS FILTER
+    // ==========================================================
 
     const paperFilter = {};
-
-    if (studentYear) {
-      paperFilter.year = Number(studentYear) || studentYear;
-    }
 
     if (studentSemester) {
       paperFilter.semester = studentSemester;
     }
 
+    const numericStudentYear = Number(studentYear);
+
+    if (studentYear && Number.isFinite(numericStudentYear)) {
+      paperFilter.year = numericStudentYear;
+    }
+
+    // ==========================================================
+    // TOTAL PAPERS
+    // ==========================================================
+
     const totalPapers = await Paper.countDocuments(paperFilter);
 
-    // =====================================================
-    // QUIZ QUESTIONS
-    // =====================================================
+    // ==========================================================
+    // TOTAL QUIZ QUESTIONS
+    // ==========================================================
 
     const totalQuizQuestions = await QuizQuestion.countDocuments();
 
-    // =====================================================
-    // ACTIVE WEEKLY TESTS
-    // =====================================================
+    // ==========================================================
+    // TODAY
+    // ==========================================================
 
-    const activeWeeklyTests = await WeeklyTest.find({
-      status: "Active",
-    })
-      .sort({
-        createdAt: -1,
-      })
-      .limit(5)
-      .lean();
+    const today = new Date();
 
-    // =====================================================
+    const startOfToday = new Date(today);
+
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date(today);
+
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // ==========================================================
     // EXAMS
-    // =====================================================
-    //
-    // IMPORTANT:
-    // Student Exam Planner exams contain the logged-in
-    // student's ID in the "user" field.
-    //
-    // This prevents one student from seeing another
-    // student's personal exams.
-    // =====================================================
+    // ==========================================================
 
-    const examFilter = {
-      user: studentId,
-    };
+    let upcomingExams = [];
 
-    if (studentYear) {
-      examFilter.year = Number(studentYear) || studentYear;
+    try {
+      upcomingExams = await Exam.find({
+        examDate: {
+          $gte: startOfToday,
+        },
+      })
+        .sort({
+          examDate: 1,
+        })
+        .limit(10)
+        .lean();
+    } catch (examError) {
+      console.error("Dashboard Exam Error:", examError);
+
+      upcomingExams = [];
     }
 
-    if (studentSemester) {
-      examFilter.semester = studentSemester;
+    const upcomingExamsLimited = Array.isArray(upcomingExams)
+      ? upcomingExams
+      : [];
+
+    // ==========================================================
+    // DAILY PLANNER
+    // ==========================================================
+
+    let todayPlans = [];
+
+    try {
+      todayPlans = await DailyPlan.find({
+        user: studentId,
+
+        date: {
+          $gte: startOfToday,
+          $lte: endOfToday,
+        },
+      })
+        .sort({
+          startTime: 1,
+        })
+        .lean();
+    } catch (plannerError) {
+      console.error("Dashboard Planner Error:", plannerError);
+
+      todayPlans = [];
     }
-
-    const exams = await Exam.find(examFilter)
-      .sort({
-        examDate: 1,
-      })
-      .lean();
-
-    // =====================================================
-    // UPCOMING EXAMS
-    // =====================================================
-
-    const upcomingExams = exams.filter((exam) => {
-      if (!exam.examDate) {
-        return false;
-      }
-
-      const examDate = new Date(exam.examDate);
-
-      if (Number.isNaN(examDate.getTime())) {
-        return false;
-      }
-
-      return examDate >= startOfToday;
-    });
-
-    const upcomingExamsLimited = upcomingExams.slice(0, 5);
-
-    // =====================================================
-    // TODAY'S DAILY PLANNER
-    // =====================================================
-
-    const todayPlans = await DailyPlan.find({
-      user: studentId,
-
-      date: {
-        $gte: startOfToday,
-        $lte: endOfToday,
-      },
-    })
-      .sort({
-        startTime: 1,
-        createdAt: 1,
-      })
-      .lean();
-
-    // =====================================================
-    // TOTAL TASKS FOR TODAY
-    // =====================================================
 
     const totalPlannerTasks = todayPlans.length;
-
-    // =====================================================
-    // COMPLETED TASKS FOR TODAY
-    // =====================================================
 
     const completedPlannerTasks = todayPlans.filter(
       (plan) => plan.completed === true,
     ).length;
 
-    // =====================================================
-    // PENDING TASKS FOR TODAY
-    // =====================================================
-
     const pendingPlannerTasks = totalPlannerTasks - completedPlannerTasks;
-
-    // =====================================================
-    // PLANNER COMPLETION PERCENTAGE
-    // =====================================================
 
     const plannerCompletionPercentage =
       totalPlannerTasks > 0
         ? Math.round((completedPlannerTasks / totalPlannerTasks) * 100)
         : 0;
 
-    // =====================================================
-    // PLANNER PENDING ITEMS
-    // =====================================================
-
-    const pendingItems = todayPlans
-      .filter((plan) => plan.completed !== true)
-      .map((plan) => ({
-        id: plan._id,
-
-        title: plan.title,
-
-        description: plan.description || "",
-
-        date: plan.date,
-
-        startTime: plan.startTime || "",
-
-        endTime: plan.endTime || "",
-
-        priority: plan.priority || "Medium",
-
-        category: plan.category || "Study",
-
-        type: "daily-planner",
-
-        completed: false,
-      }));
-
-    // =====================================================
-    // RECENT NOTES
-    // =====================================================
-
-    const recentNotes = await Note.find(noteFilter)
-      .populate("subject", "name code")
-      .sort({
-        createdAt: -1,
-      })
-      .limit(5)
-      .lean();
-
-    // =====================================================
-    // RECENT PAPERS
-    // =====================================================
-
-    const recentPapers = await Paper.find(paperFilter)
-      .sort({
-        createdAt: -1,
-      })
-      .limit(5)
-      .lean();
-
-    // =====================================================
+    // ==========================================================
     // SUBJECT DATA
-    // =====================================================
+    //
+    // IMPORTANT:
+    //
+    // Subject Progress is based ONLY on completed units.
+    //
+    // completed units
+    // ---------------- × 100
+    // total units
+    //
+    // DO NOT MIX QUIZ RESULTS INTO SUBJECT PROGRESS.
+    // ==========================================================
 
     const subjectData = await Promise.all(
       subjects.map(async (subject) => {
         const subjectId = subject._id;
 
-        // =================================================
-        // SUBJECT NOTES
-        // =================================================
+        // ==================================================
+        // UNITS
+        // ==================================================
 
-        const notesCount = await Note.countDocuments({
-          subject: subjectId,
-        });
+        const units = Array.isArray(subject.units) ? subject.units : [];
 
-        // =================================================
-        // SUBJECT QUIZ QUESTIONS
-        // =================================================
+        const totalUnits = units.length;
 
-        const quizCount = await QuizQuestion.countDocuments({
-          subject: subject.name,
-        });
+        // ==================================================
+        // COMPLETED UNIT IDS
+        // ==================================================
 
-        // =================================================
-        // SUBJECT PAPERS
-        // =================================================
+        const completedSet =
+          completedUnitsBySubject.get(String(subjectId)) || new Set();
 
-        const papersCount = await Paper.countDocuments({
-          subject: subject.name,
-        });
+        // ==================================================
+        // ONLY COUNT VALID UNITS
+        // ==================================================
 
-        // =================================================
-        // SUBJECT WEEKLY TESTS
-        // =================================================
+        const validCompletedUnits = units.filter((unit) =>
+          completedSet.has(String(unit._id)),
+        ).length;
 
-        const weeklyTestsCount = await WeeklyTest.countDocuments({
-          subject: subject.name,
+        // ==================================================
+        // REAL SUBJECT PROGRESS
+        // ==================================================
 
-          status: "Active",
-        });
+        const progress =
+          totalUnits > 0
+            ? Math.round((validCompletedUnits / totalUnits) * 100)
+            : 0;
 
-        // =================================================
-        // LEARNING PROGRESS
-        // =================================================
-        //
-        // If your Subject model contains any of these:
-        //
-        // progress
-        // progressPercentage
-        // completion
-        //
-        // we use that value.
-        //
-        // If none exists, we use 0 instead of returning
-        // null. This prevents the Dashboard from showing
-        // a dash.
-        // =================================================
+        // ==================================================
+        // NOTES COUNT
+        // ==================================================
 
-        const rawProgress =
-          subject.progress ?? subject.progressPercentage ?? subject.completion;
+        let notesCount = 0;
 
-        const numericProgress = Number(rawProgress);
+        try {
+          notesCount = await Note.countDocuments({
+            subject: subjectId,
+          });
+        } catch (error) {
+          console.error("Subject Notes Count Error:", error);
 
-        const progress = Number.isFinite(numericProgress)
-          ? Math.min(100, Math.max(0, numericProgress))
-          : 0;
+          notesCount = 0;
+        }
+
+        // ==================================================
+        // QUIZ QUESTION COUNT
+        // ==================================================
+
+        let quizCount = 0;
+
+        try {
+          quizCount = await QuizQuestion.countDocuments({
+            subject: subject.name,
+          });
+        } catch (error) {
+          console.error("Subject Quiz Count Error:", error);
+
+          quizCount = 0;
+        }
+
+        // ==================================================
+        // PAPERS COUNT
+        // ==================================================
+
+        let papersCount = 0;
+
+        try {
+          papersCount = await Paper.countDocuments({
+            subject: subject.name,
+          });
+        } catch (error) {
+          console.error("Subject Papers Count Error:", error);
+
+          papersCount = 0;
+        }
+
+        // ==================================================
+        // RETURN SUBJECT
+        // ==================================================
 
         return {
-          id: subject._id,
+          id: subjectId,
 
-          name: subject.name,
+          _id: subjectId,
 
-          code: subject.code,
+          name: subject.name || "Untitled Subject",
 
-          course: subject.course,
+          code: subject.code || "",
 
-          year: subject.year,
+          course: subject.course || "",
 
-          semester: subject.semester,
+          year: subject.year || "",
+
+          semester: subject.semester || "",
 
           description: subject.description || "",
+
+          // REAL UNITS
+          units,
+
+          // UNIT COUNTS
+          totalUnits,
+
+          completedUnits: validCompletedUnits,
+
+          // REAL SUBJECT PROGRESS
+          progress,
+
+          progressPercentage: progress,
+
+          completion: progress,
 
           resources: {
             notes: notesCount,
@@ -367,53 +436,177 @@ const getStudentDashboard = async (req, res) => {
             papers: papersCount,
 
             quizQuestions: quizCount,
-
-            activeWeeklyTests: weeklyTestsCount,
           },
-
-          progress,
         };
       }),
     );
 
-    // =====================================================
+    // ==========================================================
     // OVERALL LEARNING PROGRESS
-    // =====================================================
     //
-    // Calculates the average progress of all active
-    // subjects belonging to this student's course/year/
-    // semester.
-    //
-    // Example:
-    //
-    // AI       = 80%
-    // Networks = 60%
-    // SE       = 70%
-    // IoT      = 50%
-    //
-    // Overall = 65%
-    // =====================================================
+    // This is based on all subject units.
+    // ==========================================================
+
+    const totalUnitsAcrossSubjects = subjectData.reduce(
+      (total, subject) => total + Number(subject.totalUnits || 0),
+      0,
+    );
+
+    const completedUnitsAcrossSubjects = subjectData.reduce(
+      (total, subject) => total + Number(subject.completedUnits || 0),
+      0,
+    );
 
     const learningProgress =
-      subjectData.length > 0
+      totalUnitsAcrossSubjects > 0
         ? Math.round(
-            subjectData.reduce(
-              (total, subject) => total + (Number(subject.progress) || 0),
-              0,
-            ) / subjectData.length,
+            (completedUnitsAcrossSubjects / totalUnitsAcrossSubjects) * 100,
           )
         : 0;
 
-    // =====================================================
-    // DASHBOARD RESPONSE
-    // =====================================================
+    // ==========================================================
+    // PENDING ITEMS
+    // ==========================================================
+
+    const pendingItems = [];
+
+    // ==========================================================
+    // RECENT NOTES
+    // ==========================================================
+
+    let recentNotes = [];
+
+    try {
+      recentNotes = await Note.find(noteFilter)
+        .populate("subject", "name code")
+        .sort({
+          createdAt: -1,
+        })
+        .limit(5)
+        .lean();
+    } catch (noteError) {
+      console.error("Recent Notes Error:", noteError);
+
+      recentNotes = [];
+    }
+
+    // ==========================================================
+    // QUIZ RESULTS
+    //
+    // This is ONLY for:
+    // - Today's Test
+    // - Quiz Performance
+    //
+    // It does NOT affect Subject Progress.
+    // ==========================================================
+
+    let quizResults = [];
+
+    try {
+      quizResults = await QuizResult.find({
+        user: studentId,
+      })
+        .sort({
+          completedAt: -1,
+        })
+        .limit(10)
+        .lean();
+    } catch (quizResultError) {
+      console.error("Dashboard Quiz Results Error:", quizResultError);
+
+      quizResults = [];
+    }
+
+    // ==========================================================
+    // TODAY'S QUIZ RESULT
+    //
+    // Gets the latest quiz completed today.
+    // ==========================================================
+
+    let todayQuizResult = null;
+
+    try {
+      todayQuizResult = await QuizResult.findOne({
+        user: studentId,
+
+        completedAt: {
+          $gte: startOfToday,
+          $lte: endOfToday,
+        },
+      })
+        .sort({
+          completedAt: -1,
+        })
+        .lean();
+    } catch (todayQuizError) {
+      console.error("Today's Quiz Result Error:", todayQuizError);
+
+      todayQuizResult = null;
+    }
+
+    // ==========================================================
+    // TODAY'S TEST SCORE
+    // ==========================================================
+
+    const todayTestScore = todayQuizResult
+      ? Number(todayQuizResult.percentage)
+      : null;
+
+    // ==========================================================
+    // QUIZ PERFORMANCE
+    //
+    // Oldest → newest
+    // for dashboard chart.
+    // ==========================================================
+
+    const quizPerformance = quizResults
+      .slice()
+      .reverse()
+      .map((result) => ({
+        id: result._id,
+
+        subject: result.subject,
+
+        unit: result.unit,
+
+        score: Number(result.score || 0),
+
+        total: Number(result.total || 0),
+
+        percentage: Number(result.percentage || 0),
+
+        completedAt: result.completedAt,
+      }));
+
+    // ==========================================================
+    // RECENT PAPERS
+    // ==========================================================
+
+    let recentPapers = [];
+
+    try {
+      recentPapers = await Paper.find(paperFilter)
+        .sort({
+          createdAt: -1,
+        })
+        .limit(5)
+        .lean();
+    } catch (paperError) {
+      console.error("Recent Papers Error:", paperError);
+
+      recentPapers = [];
+    }
+
+    // ==========================================================
+    // FINAL RESPONSE
+    // ==========================================================
 
     return res.status(200).json({
       success: true,
 
-      // ===================================================
+      // ========================================================
       // STUDENT
-      // ===================================================
+      // ========================================================
 
       student: {
         id: student._id,
@@ -431,16 +624,12 @@ const getStudentDashboard = async (req, res) => {
         role: student.role,
       },
 
-      // ===================================================
+      // ========================================================
       // STATS
-      // ===================================================
+      // ========================================================
 
       stats: {
-        // =================================================
-        // GENERAL STATS
-        // =================================================
-
-        totalSubjects: subjects.length,
+        totalSubjects: subjectData.length,
 
         totalNotes,
 
@@ -448,13 +637,17 @@ const getStudentDashboard = async (req, res) => {
 
         totalQuizQuestions,
 
-        activeWeeklyTests: activeWeeklyTests.length,
-
         totalExams: upcomingExamsLimited.length,
 
-        // =================================================
-        // DAILY PLANNER STATS
-        // =================================================
+        // ======================================================
+        // REAL OVERALL LEARNING PROGRESS
+        // ======================================================
+
+        learningProgress,
+
+        // ======================================================
+        // DAILY PLANNER
+        // ======================================================
 
         planner: {
           totalTasks: totalPlannerTasks,
@@ -466,76 +659,69 @@ const getStudentDashboard = async (req, res) => {
           completionPercentage: plannerCompletionPercentage,
         },
 
-        // =================================================
-        // TODAY'S TEST
-        // =================================================
+        // ======================================================
+        // REAL TODAY'S TEST SCORE
         //
-        // There is currently no student test-attempt/result
-        // model in this controller.
-        //
-        // Therefore we DO NOT create a fake score.
-        //
-        // Dashboard will correctly show:
-        //
-        // —
-        //
-        // until test-result tracking is implemented.
-        // =================================================
+        // IMPORTANT:
+        // This must NOT be null when a quiz was completed today.
+        // ======================================================
 
-        todayTestScore: null,
+        todayTestScore,
 
-        // =================================================
-        // LEARNING PROGRESS
-        // =================================================
+        // ======================================================
+        // QUIZ PERFORMANCE
+        // ======================================================
 
-        learningProgress,
+        quizPerformance,
 
-        // =================================================
+        // ======================================================
         // PENDING ITEMS
-        // =================================================
+        // ======================================================
 
         pendingItems,
 
-        // =================================================
+        // ======================================================
         // UPCOMING EXAMS
-        // =================================================
+        // ======================================================
 
         upcomingExams: upcomingExamsLimited,
       },
 
-      // ===================================================
+      // ========================================================
       // SUBJECTS
-      // ===================================================
+      //
+      // Dashboard uses dashboardData.subjects
+      // ========================================================
 
       subjects: subjectData,
 
-      // ===================================================
-      // WEEKLY TESTS
-      // ===================================================
-
-      weeklyTests: activeWeeklyTests,
-
-      // ===================================================
+      // ========================================================
       // EXAMS
-      // ===================================================
+      // ========================================================
 
       exams: upcomingExamsLimited,
 
-      // ===================================================
-      // RECENT NOTES
-      // ===================================================
+      // ========================================================
+      // NOTES
+      // ========================================================
 
       recentNotes,
 
-      // ===================================================
-      // RECENT PAPERS
-      // ===================================================
+      // ========================================================
+      // QUIZ PERFORMANCE
+      // ========================================================
+
+      quizPerformance,
+
+      // ========================================================
+      // PAPERS
+      // ========================================================
 
       recentPapers,
 
-      // ===================================================
-      // TODAY'S PLANNER
-      // ===================================================
+      // ========================================================
+      // DAILY PLANNER
+      // ========================================================
 
       dailyPlanner: {
         date: startOfToday,
@@ -563,6 +749,10 @@ const getStudentDashboard = async (req, res) => {
     });
   }
 };
+
+// ============================================================
+// EXPORT
+// ============================================================
 
 module.exports = {
   getStudentDashboard,

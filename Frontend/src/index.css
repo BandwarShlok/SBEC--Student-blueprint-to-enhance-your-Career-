@@ -1,12 +1,26 @@
+/* ============================================================
+   SBEC GLOBAL CSS
+   ============================================================ */
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* ============================================================
+   ROOT
+   ============================================================ */
+
 html {
   scroll-behavior: smooth;
+  min-width: 320px;
+  min-height: 100%;
 }
+
+/* ============================================================
+   BODY
+   ============================================================ */
 
 body {
   margin: 0;
@@ -23,7 +37,37 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+
+  overflow-x: hidden;
+
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
 }
+
+/* ============================================================
+   SBEC DARK THEME
+   ============================================================ */
+
+html[data-sbec-theme="dark"],
+body[data-sbec-theme="dark"] {
+  background: #020617;
+  color: #ffffff;
+}
+
+/* ============================================================
+   SBEC LIGHT THEME
+   ============================================================ */
+
+html[data-sbec-theme="light"],
+body[data-sbec-theme="light"] {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
 
 button,
 input,
@@ -36,48 +80,143 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: #64748b;
+input,
+textarea,
+select {
+  color: inherit;
 }
+
+/* ============================================================
+   PLACEHOLDERS - DARK
+   ============================================================ */
+
+html[data-sbec-theme="dark"] input::placeholder,
+html[data-sbec-theme="dark"] textarea::placeholder,
+html[data-sbec-theme="dark"] select::placeholder,
+body[data-sbec-theme="dark"] input::placeholder,
+body[data-sbec-theme="dark"] textarea::placeholder,
+body[data-sbec-theme="dark"] select::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+/* ============================================================
+   PLACEHOLDERS - LIGHT
+   ============================================================ */
+
+html[data-sbec-theme="light"] input::placeholder,
+html[data-sbec-theme="light"] textarea::placeholder,
+html[data-sbec-theme="light"] select::placeholder,
+body[data-sbec-theme="light"] input::placeholder,
+body[data-sbec-theme="light"] textarea::placeholder,
+body[data-sbec-theme="light"] select::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+/* ============================================================
+   FOCUS
+   ============================================================ */
 
 input:focus,
 textarea:focus,
 select:focus {
   border-color: #8b5cf6 !important;
+  outline: none;
 }
+
+/* ============================================================
+   LINKS
+   ============================================================ */
 
 a {
   color: inherit;
 }
 
-::-webkit-scrollbar {
+/* ============================================================
+   SCROLLBAR - DARK
+   ============================================================ */
+
+html[data-sbec-theme="dark"]::-webkit-scrollbar,
+body[data-sbec-theme="dark"]::-webkit-scrollbar {
   width: 7px;
 }
 
-::-webkit-scrollbar-track {
+html[data-sbec-theme="dark"]::-webkit-scrollbar-track,
+body[data-sbec-theme="dark"]::-webkit-scrollbar-track {
   background: #020617;
 }
 
-::-webkit-scrollbar-thumb {
+html[data-sbec-theme="dark"]::-webkit-scrollbar-thumb,
+body[data-sbec-theme="dark"]::-webkit-scrollbar-thumb {
   background: #334155;
   border-radius: 10px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html[data-sbec-theme="dark"]::-webkit-scrollbar-thumb:hover,
+body[data-sbec-theme="dark"]::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
 
-/* Prevent horizontal overflow */
+/* ============================================================
+   SCROLLBAR - LIGHT
+   ============================================================ */
 
-body {
-  overflow-x: hidden;
+html[data-sbec-theme="light"]::-webkit-scrollbar,
+body[data-sbec-theme="light"]::-webkit-scrollbar {
+  width: 7px;
 }
 
-/* Mobile */
+html[data-sbec-theme="light"]::-webkit-scrollbar-track,
+body[data-sbec-theme="light"]::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+html[data-sbec-theme="light"]::-webkit-scrollbar-thumb,
+body[data-sbec-theme="light"]::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+html[data-sbec-theme="light"]::-webkit-scrollbar-thumb:hover,
+body[data-sbec-theme="light"]::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+
+::selection {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
 
 @media (max-width: 768px) {
   body {
     font-size: 14px;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

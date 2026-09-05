@@ -7,8 +7,10 @@ import {
   FaEnvelope,
   FaBook,
   FaCalendarAlt,
-  FaClipboardCheck,
+  FaCheckCircle,
+  FaCircle,
 } from "react-icons/fa";
+
 import API_URL from "../../../config/api";
 
 function StudentDetails() {
@@ -16,10 +18,14 @@ function StudentDetails() {
   const { id } = useParams();
 
   const [student, setStudent] = useState(null);
+  const [progress, setProgress] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-
+  // =====================================================
+  // FETCH STUDENT
+  // =====================================================
 
   useEffect(() => {
     let cancelled = false;
@@ -32,59 +38,42 @@ function StudentDetails() {
         const token = localStorage.getItem("admin_token");
 
         if (!token) {
-          throw new Error(
-            "Admin login session has expired."
-          );
+          throw new Error("Admin login session has expired.");
         }
 
         if (!id) {
           throw new Error("Student ID is missing.");
         }
 
-        const response = await fetch(
-          `${API_URL}/api/admin/students/${id}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await fetch(`${API_URL}/api/admin/students/${id}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         const data = await response.json();
 
-        console.log(
-          "STUDENT DETAILS API RESPONSE:",
-          data
-        );
+        console.log("STUDENT DETAILS API RESPONSE:", data);
 
         if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to fetch student."
-          );
+          throw new Error(data.message || "Failed to fetch student.");
         }
 
         if (!data.student) {
-          throw new Error(
-            "Student data was not returned by the server."
-          );
+          throw new Error("Student data was not returned by the server.");
         }
 
         if (!cancelled) {
           setStudent(data.student);
+          setProgress(data.progress || null);
         }
       } catch (err) {
-        console.error(
-          "Student Details Error:",
-          err
-        );
+        console.error("Student Details Error:", err);
 
         if (!cancelled) {
-          setError(
-            err.message ||
-              "Failed to load student details."
-          );
+          setError(err.message || "Failed to load student details.");
         }
       } finally {
         if (!cancelled) {
@@ -100,6 +89,10 @@ function StudentDetails() {
     };
   }, [id]);
 
+  // =====================================================
+  // FORMAT DATE
+  // =====================================================
+
   const formatDate = (date) => {
     if (!date) {
       return "Not available";
@@ -111,19 +104,51 @@ function StudentDetails() {
       return String(date);
     }
 
-    return parsedDate.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }
-    );
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
   };
 
-  // ==========================================
+  // =====================================================
+  // STUDENT VALUES
+  // =====================================================
+
+  const studentName = student?.name || student?.fullName || "Unnamed Student";
+
+  const studentEmail = student?.email || "Not available";
+
+  const studentCourse =
+    student?.course ||
+    student?.program ||
+    student?.degree ||
+    student?.branch ||
+    "Not available";
+
+  const studentYear = student?.year || student?.currentYear || "Not available";
+
+  const studentSemester = student?.semester || "Not available";
+
+  const studentRollNo =
+    student?.rollNo || student?.rollNumber || student?.roll || "Not available";
+
+  const studentStatus =
+    student?.isActive === false
+      ? "Inactive"
+      : student?.status
+        ? String(student.status).charAt(0).toUpperCase() +
+          String(student.status).slice(1).toLowerCase()
+        : "Active";
+
+  const joinedDate =
+    student?.createdAt || student?.joinedAt || student?.joined || null;
+
+  const isActive = studentStatus === "Active";
+
+  // =====================================================
   // LOADING
-  // ==========================================
+  // =====================================================
 
   if (loading) {
     return (
@@ -135,22 +160,17 @@ function StudentDetails() {
             <FaUserGraduate />
           </div>
 
-          <h2 className="loading-title">
-            Loading Student
-          </h2>
+          <h2 className="loading-title">Loading Student</h2>
 
-          <p className="loading-text">
-            Fetching student information from
-            MongoDB...
-          </p>
+          <p className="loading-text">Fetching student information...</p>
         </div>
       </>
     );
   }
 
-  // ==========================================
+  // =====================================================
   // ERROR
-  // ==========================================
+  // =====================================================
 
   if (error || !student) {
     return (
@@ -158,24 +178,17 @@ function StudentDetails() {
         <style>{stylesCSS}</style>
 
         <div className="student-details-center">
-          <div className="error-icon">
-            !
-          </div>
+          <div className="error-icon">!</div>
 
-          <h2 className="error-title">
-            Unable to Load Student
-          </h2>
+          <h2 className="error-title">Unable to Load Student</h2>
 
           <p className="error-text">
-            {error ||
-              "Student information could not be found."}
+            {error || "Student information could not be found."}
           </p>
 
           <button
             type="button"
-            onClick={() =>
-              navigate("/admin/students")
-            }
+            onClick={() => navigate("/admin/students")}
             className="back-button error-back-button"
           >
             <FaArrowLeft />
@@ -186,331 +199,309 @@ function StudentDetails() {
     );
   }
 
-  // ==========================================
-  // ACTUAL DATABASE VALUES
-  // ==========================================
+  // =====================================================
+  // SUBJECT DATA
+  // =====================================================
 
-  const studentName =
-    student.name ||
-    student.fullName ||
-    "Unnamed Student";
+  const subjectList = progress?.subjects || [];
 
-  const studentEmail =
-    student.email ||
-    "Not available";
+  const overallPercentage = progress?.percentage ?? 0;
 
-  const studentCourse =
-    student.course ||
-    student.program ||
-    student.degree ||
-    student.branch ||
-    "Not available";
+  const completedUnits = progress?.completedUnits ?? 0;
 
-  const studentSemester =
-    student.semester ||
-    student.year ||
-    student.currentYear ||
-    "Not available";
+  const totalUnits = progress?.totalUnits ?? 0;
 
-  const studentRollNo =
-    student.rollNo ||
-    student.rollNumber ||
-    student.roll ||
-    "Not available";
-
-  const studentStatus =
-    student.isActive === false
-      ? "Inactive"
-      : student.status
-      ? student.status
-          .charAt(0)
-          .toUpperCase() +
-        student.status.slice(1).toLowerCase()
-      : "Active";
-
-  const joinedDate =
-    student.createdAt ||
-    student.joinedAt ||
-    student.joined ||
-    null;
-
-  const tests =
-    student.testsCompleted ??
-    student.tests ??
-    student.weeklyTestsCompleted ??
-    0;
-
-  const averageScore =
-    student.averageScore !== undefined &&
-    student.averageScore !== null
-      ? `${student.averageScore}%`
-      : "0%";
-
-  const isActive =
-    studentStatus === "Active";
+  // =====================================================
+  // PAGE
+  // =====================================================
 
   return (
     <>
       <style>{stylesCSS}</style>
 
       <div className="student-details-page">
-
-        {/* BACK */}
+        {/* =========================================
+            BACK
+        ========================================= */}
 
         <button
           type="button"
-          onClick={() =>
-            navigate("/admin/students")
-          }
+          onClick={() => navigate("/admin/students")}
           className="back-button"
         >
           <FaArrowLeft />
           Back to Students
         </button>
 
-        {/* HEADER */}
+        {/* =========================================
+            HEADER
+        ========================================= */}
 
         <div className="student-header">
-
           <div className="profile-icon">
-            {studentName
-              .charAt(0)
-              .toUpperCase()}
+            {studentName.charAt(0).toUpperCase()}
           </div>
 
           <div className="header-info">
+            <h1 className="student-title">{studentName}</h1>
 
-            <h1 className="student-title">
-              {studentName}
-            </h1>
-
-            <p className="student-id">
-              Student ID: {student._id || id}
-            </p>
-
+            <p className="student-id">Student ID: {student._id || id}</p>
           </div>
 
           <span
             className={`status-badge ${
-              isActive
-                ? "status-active"
-                : "status-inactive"
+              isActive ? "status-active" : "status-inactive"
             }`}
           >
             {studentStatus}
           </span>
-
         </div>
 
-        {/* BASIC INFORMATION */}
+        {/* =========================================
+            BASIC INFORMATION
+        ========================================= */}
 
         <div className="info-grid">
-
           <div className="info-card">
-
             <div className="info-icon">
               <FaEnvelope />
             </div>
 
             <div className="info-content">
+              <p className="info-label">Email</p>
 
-              <p className="info-label">
-                Email
-              </p>
-
-              <p className="info-value">
-                {studentEmail}
-              </p>
-
+              <p className="info-value">{studentEmail}</p>
             </div>
-
           </div>
 
           <div className="info-card">
-
             <div className="info-icon">
               <FaBook />
             </div>
 
             <div className="info-content">
+              <p className="info-label">Course</p>
 
-              <p className="info-label">
-                Course
-              </p>
-
-              <p className="info-value">
-                {studentCourse}
-              </p>
-
+              <p className="info-value">{studentCourse}</p>
             </div>
-
           </div>
 
           <div className="info-card">
-
             <div className="info-icon">
               <FaUserGraduate />
             </div>
 
             <div className="info-content">
+              <p className="info-label">Semester</p>
 
-              <p className="info-label">
-                Semester
-              </p>
-
-              <p className="info-value">
-                {studentSemester}
-              </p>
-
+              <p className="info-value">{studentSemester}</p>
             </div>
-
           </div>
 
           <div className="info-card">
-
             <div className="info-icon">
               <FaCalendarAlt />
             </div>
 
             <div className="info-content">
+              <p className="info-label">Joined</p>
 
-              <p className="info-label">
-                Joined
-              </p>
-
-              <p className="info-value">
-                {formatDate(joinedDate)}
-              </p>
-
+              <p className="info-value">{formatDate(joinedDate)}</p>
             </div>
-
           </div>
-
         </div>
 
-        {/* ACADEMIC INFORMATION */}
+        {/* =========================================
+            ACADEMIC INFORMATION
+        ========================================= */}
 
         <div className="details-card">
+          <h2 className="card-title">Academic Information</h2>
 
-          <h2 className="card-title">
-            Academic Information
-          </h2>
-
-          <p className="card-subtitle">
-            Student academic details
-          </p>
+          <p className="card-subtitle">Student academic details</p>
 
           <div className="academic-grid">
-
             <div className="academic-item">
-              <p className="detail-label">
-                Roll Number
-              </p>
+              <p className="detail-label">Roll Number</p>
 
-              <p className="detail-value">
-                {studentRollNo}
-              </p>
+              <p className="detail-value">{studentRollNo}</p>
             </div>
 
             <div className="academic-item">
-              <p className="detail-label">
-                Course
-              </p>
+              <p className="detail-label">Course</p>
 
-              <p className="detail-value">
-                {studentCourse}
-              </p>
+              <p className="detail-value">{studentCourse}</p>
             </div>
 
             <div className="academic-item">
-              <p className="detail-label">
-                Current Semester
-              </p>
+              <p className="detail-label">Current Year</p>
 
-              <p className="detail-value">
-                {studentSemester}
-              </p>
+              <p className="detail-value">{studentYear}</p>
             </div>
 
             <div className="academic-item">
-              <p className="detail-label">
-                Account Status
-              </p>
+              <p className="detail-label">Current Semester</p>
+
+              <p className="detail-value">{studentSemester}</p>
+            </div>
+
+            <div className="academic-item">
+              <p className="detail-label">Account Status</p>
 
               <p
                 className={`detail-value ${
-                  isActive
-                    ? "detail-active"
-                    : "detail-inactive"
+                  isActive ? "detail-active" : "detail-inactive"
                 }`}
               >
                 {studentStatus}
               </p>
             </div>
-
           </div>
-
         </div>
 
-        {/* TEST PERFORMANCE */}
+        {/* =========================================
+            OVERALL LEARNING PROGRESS
+        ========================================= */}
 
         <div className="details-card">
+          <div className="progress-heading">
+            <div>
+              <h2 className="card-title">Learning Progress</h2>
 
-          <h2 className="card-title">
-            Test Performance
-          </h2>
-
-          <p className="card-subtitle">
-            Student quiz and weekly test
-            performance
-          </p>
-
-          <div className="performance-grid">
-
-            <div className="performance-card">
-
-              <div className="performance-icon">
-                <FaClipboardCheck />
-              </div>
-
-              <div>
-                <p className="performance-label">
-                  Tests Completed
-                </p>
-
-                <h2 className="performance-value">
-                  {tests}
-                </h2>
-              </div>
-
+              <p className="card-subtitle">
+                Overall completion across subjects
+              </p>
             </div>
 
-            <div className="performance-card">
-
-              <div className="performance-icon">
-                %
-              </div>
-
-              <div>
-                <p className="performance-label">
-                  Average Score
-                </p>
-
-                <h2 className="performance-value">
-                  {averageScore}
-                </h2>
-              </div>
-
-            </div>
-
+            <div className="overall-percentage">{overallPercentage}%</div>
           </div>
 
+          <div className="progress-bar-large">
+            <div
+              className="progress-fill"
+              style={{
+                width: `${overallPercentage}%`,
+              }}
+            />
+          </div>
+
+          <p className="progress-summary">
+            {completedUnits} of {totalUnits} units completed
+          </p>
         </div>
 
+        {/* =========================================
+            SUBJECT PROGRESS
+        ========================================= */}
+
+        <div className="details-card">
+          <h2 className="card-title">Subject Progress</h2>
+
+          <p className="card-subtitle">Unit completion for each subject</p>
+
+          {subjectList.length === 0 ? (
+            <div className="empty-progress">
+              <FaBook />
+
+              <p>No subjects available.</p>
+            </div>
+          ) : (
+            <div className="subjects-list">
+              {subjectList.map((subject) => (
+                <div className="subject-progress-card" key={subject._id}>
+                  {/* SUBJECT HEADER */}
+
+                  <div className="subject-progress-header">
+                    <div className="subject-title-wrapper">
+                      <h3>{subject.name}</h3>
+
+                      {subject.code && <span>{subject.code}</span>}
+                    </div>
+
+                    <strong>{subject.percentage}%</strong>
+                  </div>
+
+                  {/* PROGRESS BAR */}
+
+                  <div className="subject-progress-bar">
+                    <div
+                      className="subject-progress-fill"
+                      style={{
+                        width: `${subject.percentage}%`,
+                      }}
+                    />
+                  </div>
+
+                  {/* UNIT SUMMARY */}
+
+                  <div className="unit-summary">
+                    <span>
+                      {subject.completedUnits} / {subject.totalUnits} Units
+                      Completed
+                    </span>
+
+                    <span>
+                      {subject.totalUnits === 0
+                        ? "No units"
+                        : subject.percentage === 100
+                          ? "Completed"
+                          : "In Progress"}
+                    </span>
+                  </div>
+
+                  {/* UNIT LIST */}
+
+                  {subject.units?.length > 0 && (
+                    <div className="unit-list">
+                      {subject.units.map((unit, index) => (
+                        <div className="unit-row" key={unit._id}>
+                          <div className="unit-left">
+                            {unit.completed ? (
+                              <FaCheckCircle className="unit-completed-icon" />
+                            ) : (
+                              <FaCircle className="unit-pending-icon" />
+                            )}
+
+                            <div>
+                              <p className="unit-name">
+                                {unit.name || `Unit ${index + 1}`}
+                              </p>
+
+                              {unit.topics?.length > 0 && (
+                                <p className="topic-count">
+                                  {unit.topics.length}{" "}
+                                  {unit.topics.length === 1
+                                    ? "Topic"
+                                    : "Topics"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <span
+                            className={
+                              unit.completed ? "completed-text" : "pending-text"
+                            }
+                          >
+                            {unit.completed ? "Completed" : "Pending"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
 }
+
+// =====================================================
+// CSS
+// =====================================================
 
 const stylesCSS = `
 
@@ -518,11 +509,15 @@ const stylesCSS = `
   box-sizing: border-box;
 }
 
+/* ==========================================
+   PAGE
+========================================== */
+
 .student-details-page {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding-bottom: 20px;
+  padding-bottom: 30px;
 }
 
 /* ==========================================
@@ -758,13 +753,17 @@ const stylesCSS = `
   display: grid;
 
   grid-template-columns:
-    repeat(4, 1fr);
+    repeat(5, 1fr);
 
-  gap: 20px;
+  gap: 15px;
 
   border-top: 1px solid #1E293B;
 
   padding-top: 20px;
+}
+
+.academic-item {
+  min-width: 0;
 }
 
 .detail-label {
@@ -796,19 +795,72 @@ const stylesCSS = `
 }
 
 /* ==========================================
-   PERFORMANCE
+   OVERALL PROGRESS
 ========================================== */
 
-.performance-grid {
-  display: grid;
+.progress-heading {
+  display: flex;
 
-  grid-template-columns:
-    repeat(2, 1fr);
+  align-items: flex-start;
 
-  gap: 15px;
+  justify-content: space-between;
+
+  gap: 20px;
 }
 
-.performance-card {
+.overall-percentage {
+  color: #A78BFA;
+
+  font-size: 25px;
+
+  font-weight: 700;
+}
+
+.progress-bar-large {
+  width: 100%;
+
+  height: 10px;
+
+  background: #020617;
+
+  border-radius: 999px;
+
+  overflow: hidden;
+
+  margin-top: 5px;
+}
+
+.progress-fill {
+  height: 100%;
+
+  background: #8B5CF6;
+
+  border-radius: 999px;
+
+  transition: width 0.3s ease;
+}
+
+.progress-summary {
+  color: #64748B;
+
+  font-size: 11px;
+
+  margin: 9px 0 0;
+}
+
+/* ==========================================
+   SUBJECT PROGRESS
+========================================== */
+
+.subjects-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+.subject-progress-card {
   background: #020617;
 
   border: 1px solid #1E293B;
@@ -816,54 +868,226 @@ const stylesCSS = `
   border-radius: 12px;
 
   padding: 16px;
+}
 
+.subject-progress-header {
   display: flex;
 
   align-items: center;
 
-  gap: 13px;
+  justify-content: space-between;
 
+  gap: 15px;
+
+  margin-bottom: 10px;
+}
+
+.subject-title-wrapper {
   min-width: 0;
 }
 
-.performance-icon {
-  width: 40px;
-  height: 40px;
-
-  border-radius: 9px;
-
-  background: #312E81;
-  color: #A78BFA;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.subject-title-wrapper h3 {
+  color: #FFFFFF;
 
   font-size: 14px;
 
-  font-weight: 700;
+  margin: 0;
+
+  word-break: break-word;
+}
+
+.subject-title-wrapper span {
+  display: inline-block;
+
+  color: #64748B;
+
+  font-size: 9px;
+
+  margin-top: 4px;
+
+  text-transform: uppercase;
+}
+
+.subject-progress-header strong {
+  color: #A78BFA;
+
+  font-size: 14px;
 
   flex-shrink: 0;
 }
 
-.performance-label {
+/* ==========================================
+   SUBJECT PROGRESS BAR
+========================================== */
+
+.subject-progress-bar {
+  width: 100%;
+
+  height: 7px;
+
+  background: #1E293B;
+
+  border-radius: 999px;
+
+  overflow: hidden;
+}
+
+.subject-progress-fill {
+  height: 100%;
+
+  background: #8B5CF6;
+
+  border-radius: 999px;
+
+  transition: width 0.3s ease;
+}
+
+/* ==========================================
+   UNIT SUMMARY
+========================================== */
+
+.unit-summary {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-top: 9px;
+
   color: #64748B;
 
   font-size: 10px;
+}
+
+/* ==========================================
+   UNIT LIST
+========================================== */
+
+.unit-list {
+  border-top: 1px solid #1E293B;
+
+  margin-top: 14px;
+
+  padding-top: 5px;
+}
+
+.unit-row {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding: 10px 0;
+
+  border-bottom: 1px solid #1E293B;
+}
+
+.unit-row:last-child {
+  border-bottom: none;
+}
+
+.unit-left {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  min-width: 0;
+}
+
+.unit-completed-icon {
+  color: #6EE7B7;
+
+  font-size: 13px;
+
+  flex-shrink: 0;
+}
+
+.unit-pending-icon {
+  color: #475569;
+
+  font-size: 9px;
+
+  flex-shrink: 0;
+}
+
+.unit-name {
+  color: #CBD5E1;
+
+  font-size: 11px;
+
+  margin: 0;
+
+  word-break: break-word;
+}
+
+.topic-count {
+  color: #475569;
+
+  font-size: 9px;
+
+  margin: 3px 0 0;
+}
+
+.completed-text {
+  color: #6EE7B7;
+
+  font-size: 9px;
+
+  font-weight: 600;
+
+  flex-shrink: 0;
+}
+
+.pending-text {
+  color: #64748B;
+
+  font-size: 9px;
+
+  flex-shrink: 0;
+}
+
+/* ==========================================
+   EMPTY
+========================================== */
+
+.empty-progress {
+  min-height: 150px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #475569;
+
+  text-align: center;
+}
+
+.empty-progress svg {
+  font-size: 25px;
+
+  margin-bottom: 10px;
+}
+
+.empty-progress p {
+  font-size: 11px;
 
   margin: 0;
 }
 
-.performance-value {
-  color: #FFFFFF;
-
-  font-size: 21px;
-
-  margin: 4px 0 0;
-}
-
 /* ==========================================
-   LOADING
+   LOADING / ERROR
 ========================================== */
 
 .student-details-center {
@@ -960,7 +1184,7 @@ const stylesCSS = `
 
   .academic-grid {
     grid-template-columns:
-      repeat(2, 1fr);
+      repeat(3, 1fr);
   }
 }
 
@@ -983,8 +1207,6 @@ const stylesCSS = `
 
     margin-bottom: 18px;
   }
-
-  /* HEADER */
 
   .student-header {
     align-items: flex-start;
@@ -1120,28 +1342,33 @@ const stylesCSS = `
     margin-top: 5px;
   }
 
-  /* PERFORMANCE */
+  /* PROGRESS */
 
-  .performance-grid {
-    grid-template-columns: 1fr;
-
-    gap: 10px;
+  .overall-percentage {
+    font-size: 21px;
   }
 
-  .performance-card {
-    padding: 14px;
-
-    border-radius: 10px;
+  .subject-progress-card {
+    padding: 13px;
   }
 
-  .performance-icon {
-    width: 40px;
-    height: 40px;
+  .subject-progress-header {
+    align-items: flex-start;
   }
 
-  .performance-value {
-    font-size: 20px;
+  .unit-summary {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 4px;
   }
+
+  .unit-row {
+    align-items: flex-start;
+  }
+
+  /* CENTER */
 
   .student-details-center {
     min-height: 300px;
@@ -1187,7 +1414,11 @@ const stylesCSS = `
     padding: 13px;
   }
 
+  .overall-percentage {
+    font-size: 19px;
+  }
 }
+
 `;
 
 export default StudentDetails;

@@ -1,307 +1,453 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FaArrowLeft,
   FaBook,
-  FaBookmark,
-  FaRegBookmark,
   FaClipboardCheck,
   FaCheckCircle,
+  FaExternalLinkAlt,
+  FaFilePdf,
+  FaSyncAlt,
 } from "react-icons/fa";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import API_URL from "../../config/api";
 
-/* =========================================================
-   TEMPORARY NOTES DATA
-   ========================================================= */
+const getToken = () =>
+  localStorage.getItem("sbec_token") || localStorage.getItem("token") || "";
 
-const notesData = {
-  1: {
-    1: {
-      subject: "Artificial Intelligence",
-      unit: "Unit 1",
-      title: "Introduction to Artificial Intelligence",
-      content: [
-        {
-          heading: "What is Artificial Intelligence?",
-          text: "Artificial Intelligence (AI) is a branch of computer science that focuses on creating systems capable of performing tasks that normally require human intelligence.",
-        },
-        {
-          heading: "Characteristics of AI",
-          points: [
-            "Learning from data and experience",
-            "Reasoning and problem solving",
-            "Knowledge representation",
-            "Decision making",
-            "Understanding natural language",
-          ],
-        },
-        {
-          heading: "Intelligent Agents",
-          text: "An intelligent agent perceives its environment through sensors and acts upon that environment using actuators.",
-        },
-        {
-          heading: "Applications of AI",
-          points: [
-            "Healthcare",
-            "Education",
-            "Robotics",
-            "Finance",
-            "Natural Language Processing",
-            "Computer Vision",
-          ],
-        },
-      ],
-    },
+const getId = (item) => String(item?._id || item?.id || "");
 
-    2: {
-      subject: "Artificial Intelligence",
-      unit: "Unit 2",
-      title: "Uninformed Search",
-      content: [
-        {
-          heading: "Introduction",
-          text: "Uninformed search algorithms explore the search space without using additional domain-specific knowledge.",
-        },
-        {
-          heading: "Breadth First Search",
-          text: "Breadth First Search explores nodes level by level and uses a queue data structure.",
-        },
-        {
-          heading: "Depth First Search",
-          text: "Depth First Search explores as far as possible along one branch before backtracking.",
-        },
-        {
-          heading: "Common Algorithms",
-          points: [
-            "Breadth First Search",
-            "Depth First Search",
-            "Depth Limited Search",
-            "Iterative Deepening Search",
-          ],
-        },
-      ],
-    },
-  },
+const getUnitName = (unit) =>
+  unit?.name || unit?.title || (unit?.number ? `Unit ${unit.number}` : "");
 
-  2: {
-    1: {
-      subject: "Computer Networks",
-      unit: "Unit 1",
-      title: "Introduction to Computer Networks",
-      content: [
-        {
-          heading: "What is a Computer Network?",
-          text: "A computer network is a collection of interconnected devices that communicate with each other and share resources.",
-        },
-        {
-          heading: "Network Types",
-          points: [
-            "LAN - Local Area Network",
-            "MAN - Metropolitan Area Network",
-            "WAN - Wide Area Network",
-            "PAN - Personal Area Network",
-          ],
-        },
-        {
-          heading: "Network Components",
-          points: [
-            "Sender",
-            "Receiver",
-            "Transmission Medium",
-            "Network Devices",
-            "Protocols",
-          ],
-        },
-      ],
-    },
+const getFileUrl = (url) => {
+  if (!url) return "";
 
-    2: {
-      subject: "Computer Networks",
-      unit: "Unit 2",
-      title: "OSI and TCP/IP Model",
-      content: [
-        {
-          heading: "OSI Model",
-          text: "The OSI model is a seven-layer reference model used to understand network communication.",
-        },
-        {
-          heading: "Seven OSI Layers",
-          points: [
-            "Physical Layer",
-            "Data Link Layer",
-            "Network Layer",
-            "Transport Layer",
-            "Session Layer",
-            "Presentation Layer",
-            "Application Layer",
-          ],
-        },
-        {
-          heading: "TCP/IP Model",
-          points: [
-            "Network Access Layer",
-            "Internet Layer",
-            "Transport Layer",
-            "Application Layer",
-          ],
-        },
-      ],
-    },
-  },
+  const raw = String(url).trim();
 
-  3: {
-    1: {
-      subject: "Software Engineering",
-      unit: "Unit 1",
-      title: "Introduction to Software Engineering",
-      content: [
-        {
-          heading: "What is Software Engineering?",
-          text: "Software engineering is a systematic approach to the development, operation, maintenance and testing of software.",
-        },
-        {
-          heading: "Characteristics of Good Software",
-          points: [
-            "Correctness",
-            "Reliability",
-            "Efficiency",
-            "Maintainability",
-            "Usability",
-            "Security",
-          ],
-        },
-        {
-          heading: "Software Engineering Principles",
-          points: [
-            "Modularity",
-            "Abstraction",
-            "Reusability",
-            "Maintainability",
-            "Testing",
-          ],
-        },
-      ],
-    },
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
+  }
 
-    2: {
-      subject: "Software Engineering",
-      unit: "Unit 2",
-      title: "Software Development Models",
-      content: [
-        {
-          heading: "Software Development Model",
-          text: "A software development model defines the process followed to develop and maintain software.",
-        },
-        {
-          heading: "Common Models",
-          points: [
-            "Waterfall Model",
-            "Agile Model",
-            "Spiral Model",
-            "Prototype Model",
-            "Incremental Model",
-          ],
-        },
-        {
-          heading: "Agile Development",
-          text: "Agile development focuses on iterative development, continuous feedback and delivering working software frequently.",
-        },
-      ],
-    },
-  },
-
-  4: {
-    1: {
-      subject: "Internet of Things",
-      unit: "Unit 1",
-      title: "Introduction to IoT",
-      content: [
-        {
-          heading: "What is IoT?",
-          text: "The Internet of Things is a network of physical objects equipped with sensors, software and connectivity that allows them to collect and exchange data.",
-        },
-        {
-          heading: "Characteristics of IoT",
-          points: [
-            "Connectivity",
-            "Sensing",
-            "Data Processing",
-            "Automation",
-            "Real-time communication",
-          ],
-        },
-        {
-          heading: "Applications of IoT",
-          points: [
-            "Smart Homes",
-            "Smart Cities",
-            "Healthcare",
-            "Agriculture",
-            "Industrial Automation",
-          ],
-        },
-      ],
-    },
-
-    2: {
-      subject: "Internet of Things",
-      unit: "Unit 2",
-      title: "IoT Architecture",
-      content: [
-        {
-          heading: "IoT Architecture",
-          text: "IoT architecture defines the layers and components involved in sensing, communication, processing and application of IoT data.",
-        },
-        {
-          heading: "Common Layers",
-          points: [
-            "Perception Layer",
-            "Network Layer",
-            "Processing Layer",
-            "Application Layer",
-          ],
-        },
-      ],
-    },
-  },
+  return `${String(API_URL).replace(/\/+$/, "")}/${raw.replace(/^\/+/, "")}`;
 };
-
-/* =========================================================
-   NOTES PAGE
-   ========================================================= */
 
 function Notes() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: subjectId } = useParams();
   const [searchParams] = useSearchParams();
 
-  const unitId = Number(searchParams.get("unit") || 1);
+  const requestedUnitId = searchParams.get("unit") || "";
 
-  const note = notesData[id]?.[unitId];
+  const [subject, setSubject] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [selectedNote, setSelectedNote] = useState(null);
 
-  const [bookmarked, setBookmarked] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  /* =======================================================
-     NOTE NOT FOUND
-     ======================================================= */
+  const [loading, setLoading] = useState(true);
 
-  if (!note) {
+  const [savingComplete, setSavingComplete] = useState(false);
+
+  const [error, setError] = useState("");
+
+  /*
+  ========================================================
+  LOAD NOTES AND UNIT PROGRESS
+  ========================================================
+  */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPage = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        if (!subjectId) {
+          throw new Error("Subject ID is missing.");
+        }
+
+        const token = getToken();
+
+        if (!token) {
+          throw new Error(
+            "Student login session not found. Please login again.",
+          );
+        }
+
+        /*
+        ----------------------------------------------------
+        LOAD NOTES
+        ----------------------------------------------------
+        */
+
+        const response = await fetch(
+          `${API_URL}/api/student/subjects/${subjectId}/notes`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        let data = {};
+
+        try {
+          data = await response.json();
+        } catch {
+          data = {};
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem("sbec_token");
+
+          localStorage.removeItem("sbec_user");
+
+          throw new Error(
+            "Your login session has expired. Please login again.",
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Failed to load notes.");
+        }
+
+        if (cancelled) return;
+
+        const loadedSubject = data?.subject || null;
+
+        const loadedNotes = Array.isArray(data?.notes) ? data.notes : [];
+
+        /*
+        ----------------------------------------------------
+        FIND CURRENT UNIT
+        ----------------------------------------------------
+        */
+
+        const units = Array.isArray(loadedSubject?.units)
+          ? loadedSubject.units
+          : [];
+
+        const currentUnit =
+          units.find((unit) => getId(unit) === String(requestedUnitId)) ||
+          units.find(
+            (unit) => String(unit?.name || "") === String(requestedUnitId),
+          ) ||
+          null;
+
+        const currentUnitName = getUnitName(currentUnit);
+
+        /*
+        ----------------------------------------------------
+        UNIT-WISE NOTE FILTER
+        ----------------------------------------------------
+        */
+
+        let unitNotes = loadedNotes;
+
+        if (requestedUnitId) {
+          unitNotes = loadedNotes.filter((note) => {
+            const noteUnit = note?.unit || note?.unitId || note?.unitName || "";
+
+            /*
+             * If this is the only note for the
+             * subject and old data doesn't have
+             * a unit field, allow it to display.
+             */
+            if (!noteUnit && loadedNotes.length === 1) {
+              return true;
+            }
+
+            if (typeof noteUnit === "object") {
+              return (
+                getId(noteUnit) === String(requestedUnitId) ||
+                String(noteUnit?.name || "") === String(currentUnitName)
+              );
+            }
+
+            return (
+              String(noteUnit) === String(requestedUnitId) ||
+              String(noteUnit) === String(currentUnitName)
+            );
+          });
+        }
+
+        setSubject(loadedSubject);
+        setNotes(unitNotes);
+        setSelectedNote(unitNotes[0] || null);
+
+        /*
+        ----------------------------------------------------
+        LOAD STUDENT PROGRESS
+        ----------------------------------------------------
+        */
+
+        if (requestedUnitId) {
+          try {
+            const progressResponse = await fetch(
+              `${API_URL}/api/student/progress`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            );
+
+            if (progressResponse.ok) {
+              const progressData = await progressResponse.json();
+
+              const rows = Array.isArray(progressData)
+                ? progressData
+                : Array.isArray(progressData?.progress)
+                  ? progressData.progress
+                  : Array.isArray(progressData?.data)
+                    ? progressData.data
+                    : [];
+
+              const isCompleted = rows.some((row) => {
+                const rowSubjectId =
+                  typeof row?.subject === "object"
+                    ? getId(row.subject)
+                    : String(row?.subject || "");
+
+                return (
+                  rowSubjectId === String(subjectId) &&
+                  String(row?.unitId || "") === String(requestedUnitId) &&
+                  row?.completed !== false
+                );
+              });
+
+              if (!cancelled) {
+                setCompleted(isCompleted);
+              }
+            }
+          } catch (progressError) {
+            console.error("Progress load error:", progressError);
+          }
+        } else {
+          setCompleted(false);
+        }
+      } catch (err) {
+        console.error("Student Notes Error:", err);
+
+        if (!cancelled) {
+          setError(err?.message || "Failed to load notes.");
+
+          setSubject(null);
+          setNotes([]);
+          setSelectedNote(null);
+          setCompleted(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadPage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [subjectId, requestedUnitId]);
+
+  /*
+  ========================================================
+  CURRENT UNIT
+  ========================================================
+  */
+
+  const units = Array.isArray(subject?.units) ? subject.units : [];
+
+  const selectedUnit =
+    units.find((unit) => getId(unit) === String(requestedUnitId)) ||
+    units.find(
+      (unit) => String(unit?.name || "") === String(requestedUnitId),
+    ) ||
+    null;
+
+  const selectedUnitName = getUnitName(selectedUnit);
+
+  const subjectName = subject?.name || "Subject";
+
+  /*
+  ========================================================
+  NOTE DATA
+  ========================================================
+  */
+
+  const noteTitle = selectedNote?.title || "Study Notes";
+
+  const noteDescription =
+    selectedNote?.description ||
+    `Study material for ${selectedUnitName || subjectName}.`;
+
+  /*
+   * THIS IS THE IMPORTANT FIX.
+   * Actual content saved in MongoDB is
+   * displayed here.
+   */
+  const noteContent = String(selectedNote?.content || "").trim();
+
+  const fileUrl = getFileUrl(selectedNote?.fileUrl);
+
+  const fileName = String(selectedNote?.fileName || "");
+
+  const isPdf =
+    fileName.toLowerCase().endsWith(".pdf") ||
+    fileUrl.toLowerCase().includes(".pdf");
+
+  /*
+  ========================================================
+  NAVIGATION
+  ========================================================
+  */
+
+  const handleBack = () => {
+    navigate(`/subjects/${subjectId}`);
+  };
+
+  const handleQuiz = () => {
+    if (!subjectName || subjectName === "Subject") {
+      toast.error("Subject information is not available.");
+      return;
+    }
+
+    if (!selectedUnitName) {
+      toast.error("Unit information is not available.");
+      return;
+    }
+
+    navigate(
+      `/quiz?subject=${encodeURIComponent(
+        subjectName,
+      )}&unit=${encodeURIComponent(selectedUnitName)}`,
+    );
+  };
+
+  /*
+  ========================================================
+  COMPLETE / INCOMPLETE
+  ========================================================
+  */
+
+  const handleComplete = async () => {
+    if (!subjectId || !requestedUnitId) {
+      toast.error("Open Notes from a specific unit first.");
+      return;
+    }
+
+    const token = getToken();
+
+    if (!token) {
+      toast.error("Please login again.");
+      return;
+    }
+
+    try {
+      setSavingComplete(true);
+
+      const response = await fetch(
+        `${API_URL}/api/student/progress/subject/${subjectId}/unit/${requestedUnitId}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem("sbec_token");
+
+        localStorage.removeItem("sbec_user");
+
+        toast.error("Your login session has expired.");
+
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Unable to update unit progress.");
+      }
+
+      const newStatus =
+        data?.completed === true || data?.progress?.completed === true;
+
+      setCompleted(newStatus);
+
+      toast.success(
+        newStatus
+          ? `${selectedUnitName || "Unit"} completed.`
+          : `${selectedUnitName || "Unit"} marked incomplete.`,
+      );
+    } catch (err) {
+      console.error("Complete Unit Error:", err);
+
+      toast.error(err?.message || "Unable to update progress.");
+    } finally {
+      setSavingComplete(false);
+    }
+  };
+
+  /*
+  ========================================================
+  LOADING
+  ========================================================
+  */
+
+  if (loading) {
     return (
       <div className="notes-page">
-        <div className="not-found-card">
-          <div className="not-found-icon">
+        <div className="state-card">
+          <div className="state-icon">
+            <FaSyncAlt className="spin" />
+          </div>
+
+          <h2>Loading Notes</h2>
+
+          <p>Fetching study material from the database...</p>
+        </div>
+
+        <style>{styles}</style>
+      </div>
+    );
+  }
+
+  /*
+  ========================================================
+  ERROR
+  ========================================================
+  */
+
+  if (error) {
+    return (
+      <div className="notes-page">
+        <div className="state-card">
+          <div className="state-icon">
             <FaBook />
           </div>
 
-          <h2>Notes Not Available</h2>
+          <h2>Unable to Load Notes</h2>
 
-          <p>Notes for this subject or unit are currently not available.</p>
+          <p>{error}</p>
 
-          <button
-            className="primary-button"
-            onClick={() => navigate(`/subjects/${id}`)}
-          >
+          <button type="button" className="primary-button" onClick={handleBack}>
             <FaArrowLeft />
             Back to Subject
           </button>
@@ -312,884 +458,719 @@ function Notes() {
     );
   }
 
-  /* =======================================================
-     BOOKMARK
-     ======================================================= */
+  /*
+  ========================================================
+  NO NOTE
+  ========================================================
+  */
 
-  const handleBookmark = () => {
-    setBookmarked((previous) => {
-      const nextValue = !previous;
+  if (!selectedNote) {
+    return (
+      <div className="notes-page">
+        <div className="state-card">
+          <div className="state-icon">
+            <FaBook />
+          </div>
 
-      toast.success(nextValue ? "Note bookmarked." : "Removed from bookmarks.");
+          <h2>No Notes Available</h2>
 
-      return nextValue;
-    });
-  };
+          <p>
+            No note has been added for {selectedUnitName || "this unit"} yet.
+          </p>
 
-  /* =======================================================
-     COMPLETE
-     ======================================================= */
+          <button type="button" className="primary-button" onClick={handleBack}>
+            <FaArrowLeft />
+            Back to Subject
+          </button>
+        </div>
 
-  const handleComplete = () => {
-    setCompleted((previous) => {
-      const nextValue = !previous;
+        <style>{styles}</style>
+      </div>
+    );
+  }
 
-      toast.success(
-        nextValue ? "Unit marked as completed." : "Unit marked incomplete.",
-      );
-
-      return nextValue;
-    });
-  };
-
-  /* =======================================================
-     QUIZ
-     ======================================================= */
-
-  const handleQuiz = () => {
-    navigate(`/quiz?subject=${id}&unit=${unitId}`);
-  };
-
-  /* =======================================================
-     RENDER
-     ======================================================= */
+  /*
+  ========================================================
+  MAIN PAGE
+  ========================================================
+  */
 
   return (
     <div className="notes-page">
-      {/* =================================================
-          TOP BAR
-      ================================================= */}
+      {/* TOP BAR */}
 
-      <div className="notes-top-bar">
-        <button
-          className="back-button"
-          onClick={() => navigate(`/subjects/${id}`)}
-        >
+      <div className="top-bar">
+        <button type="button" className="back-button" onClick={handleBack}>
           <FaArrowLeft />
+
           <span>Back to Subject</span>
         </button>
 
-        <div className="notes-actions">
-          <button
-            className={`action-button bookmark-button ${
-              bookmarked ? "active" : ""
-            }`}
-            onClick={handleBookmark}
-          >
-            {bookmarked ? <FaBookmark /> : <FaRegBookmark />}
+        <button type="button" className="quiz-button" onClick={handleQuiz}>
+          <FaClipboardCheck />
 
-            <span>{bookmarked ? "Bookmarked" : "Bookmark"}</span>
-          </button>
-
-          <button className="action-button quiz-button" onClick={handleQuiz}>
-            <FaClipboardCheck />
-            <span>Take Quiz</span>
-          </button>
-        </div>
+          <span>Take Unit Quiz</span>
+        </button>
       </div>
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* NOTE HEADER */}
 
       <div className="note-header">
         <div className="unit-label">
-          {note.subject} <span>•</span> {note.unit}
+          {subjectName}
+
+          {selectedUnitName && (
+            <>
+              <span>•</span>
+
+              {selectedUnitName}
+            </>
+          )}
         </div>
 
-        <h1>{note.title}</h1>
+        <h1>{noteTitle}</h1>
 
-        <p>
-          Study the notes carefully and take the quiz after completing the unit.
-        </p>
+        <p>{noteDescription}</p>
       </div>
 
-      {/* =================================================
-          NOTE CONTENT
-      ================================================= */}
+      {/* ACTUAL NOTE */}
 
-      <div className="note-container">
-        {note.content.map((section, index) => (
-          <section key={index} className="note-section">
-            <h2>
-              <span className="section-number">
-                {String(index + 1).padStart(2, "0")}
-              </span>
+      <section className="material-card">
+        <div className="material-header">
+          <div className="material-icon">
+            {isPdf ? <FaFilePdf /> : <FaBook />}
+          </div>
 
-              {section.heading}
-            </h2>
+          <div className="material-info">
+            <h2>{noteTitle}</h2>
 
-            {section.text && <p className="note-text">{section.text}</p>}
+            <p>
+              {selectedUnitName
+                ? `${selectedUnitName} study notes`
+                : "Study notes"}
+            </p>
+          </div>
 
-            {section.points && (
-              <ul className="note-list">
-                {section.points.map((point, pointIndex) => (
-                  <li key={pointIndex}>
-                    <span className="bullet">✓</span>
+          {fileUrl && (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="open-button"
+            >
+              <FaExternalLinkAlt />
+              Open File
+            </a>
+          )}
+        </div>
 
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))}
-      </div>
+        {/* =================================================
+            ACTUAL MONGODB NOTE CONTENT
+        ================================================= */}
 
-      {/* =================================================
-          COMPLETE CARD
-      ================================================= */}
+        <article className="note-content">
+          {noteContent || "No written content has been added to this note yet."}
+        </article>
 
-      <div className={`completion-card ${completed ? "completion-done" : ""}`}>
-        <div className="completion-info">
+        {/* =================================================
+            OPTIONAL PDF
+        ================================================= */}
+
+        {fileUrl && isPdf && (
+          <div className="attached-file">
+            <div className="attached-title">
+              <FaFilePdf />
+
+              <span>{fileName || "Attached PDF"}</span>
+            </div>
+
+            <div className="pdf-viewer">
+              <iframe src={fileUrl} title={noteTitle} className="pdf-frame" />
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* OTHER NOTES FOR SAME UNIT */}
+
+      {notes.length > 1 && (
+        <section className="other-notes">
+          <span className="section-label">MORE NOTES</span>
+
+          <h3>Notes for {selectedUnitName || "this unit"}</h3>
+
+          <p>Select another note to continue studying.</p>
+
+          <div className="notes-list">
+            {notes.map((note, index) => {
+              const noteId = getId(note) || `note-${index}`;
+
+              return (
+                <button
+                  type="button"
+                  key={noteId}
+                  className={`note-item ${
+                    getId(selectedNote) === noteId ? "active" : ""
+                  }`}
+                  onClick={() => setSelectedNote(note)}
+                >
+                  <FaBook />
+
+                  <span>{note?.title || `Note ${index + 1}`}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* UNIT COMPLETION */}
+
+      <section className={`completion-card ${completed ? "done" : ""}`}>
+        <div className="completion-left">
           <div className="completion-icon">
             <FaCheckCircle />
           </div>
 
           <div>
-            <h3>{completed ? "Unit Completed" : "Finished studying?"}</h3>
+            <h3>
+              {completed
+                ? `${selectedUnitName || "Unit"} Completed`
+                : "Finished studying?"}
+            </h3>
 
             <p>
               {completed
-                ? "You have completed this unit."
-                : "Mark this unit as completed when you finish studying."}
+                ? "Your unit completion is saved."
+                : "Mark this unit complete after studying the notes."}
             </p>
           </div>
         </div>
 
         <button
-          className={`completion-button ${
-            completed ? "completion-button-done" : ""
-          }`}
+          type="button"
+          className={`complete-button ${completed ? "done-button" : ""}`}
           onClick={handleComplete}
+          disabled={savingComplete}
         >
-          {completed ? "Completed" : "Mark Complete"}
+          {savingComplete
+            ? "Saving..."
+            : completed
+              ? "Mark Incomplete"
+              : "Mark Complete"}
         </button>
-      </div>
+      </section>
 
       <style>{styles}</style>
     </div>
   );
 }
 
-/* =========================================================
-   STYLES
-   ========================================================= */
-
 const styles = `
-
-/* =========================================================
-   PAGE
-   ========================================================= */
-
-.notes-page {
-  width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
-  color: #FFFFFF;
-  box-sizing: border-box;
-  overflow-x: hidden;
+.notes-page{
+  width:100%;
+  max-width:1120px;
+  margin:0 auto;
+  padding:5px 0 35px;
+  color:#fff;
+  box-sizing:border-box;
+  overflow-x:hidden;
 }
 
-
-/* =========================================================
-   TOP BAR
-   ========================================================= */
-
-.notes-top-bar {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 28px;
+.top-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  margin-bottom:28px;
 }
 
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  background: transparent;
-  border: none;
-
-  color: #94A3B8;
-
-  padding: 8px 0;
-
-  font-size: 13px;
-  font-weight: 600;
-
-  cursor: pointer;
-
-  transition: 0.2s;
+.back-button{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  padding:9px 0;
+  border:0;
+  background:transparent;
+  color:#94a3b8;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
 }
 
-.back-button:hover {
-  color: #FFFFFF;
-  transform: translateX(-2px);
+.back-button:hover{
+  color:#fff;
 }
 
-.notes-actions {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.quiz-button,
+.primary-button,
+.open-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  text-decoration:none;
+  cursor:pointer;
+  font-weight:700;
 }
 
-.action-button {
-  min-height: 42px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  gap: 8px;
-
-  padding: 10px 15px;
-
-  border-radius: 10px;
-
-  cursor: pointer;
-
-  font-size: 12px;
-  font-weight: 600;
-
-  transition: 0.2s;
+.quiz-button{
+  min-height:42px;
+  padding:10px 16px;
+  border:1px solid #8b5cf6;
+  border-radius:10px;
+  background:#8b5cf6;
+  color:#fff;
 }
 
-.bookmark-button {
-  background: #0F172A;
-  border: 1px solid #334155;
-  color: #CBD5E1;
+.quiz-button:hover{
+  background:#7c3aed;
 }
 
-.bookmark-button:hover,
-.bookmark-button.active {
-  color: #A78BFA;
-  border-color: #8B5CF6;
-  background: #17112B;
+.note-header{
+  max-width:900px;
+  margin-bottom:25px;
 }
 
-.quiz-button {
-  background: #8B5CF6;
-  border: 1px solid #8B5CF6;
-  color: #FFFFFF;
+.unit-label{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+  color:#a78bfa;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.8px;
+  text-transform:uppercase;
 }
 
-.quiz-button:hover {
-  background: #7C3AED;
+.unit-label span{
+  color:#475569;
 }
 
-
-/* =========================================================
-   HEADER
-   ========================================================= */
-
-.note-header {
-  margin-bottom: 28px;
-  max-width: 850px;
+.note-header h1{
+  margin:0 0 10px;
+  color:#fff;
+  font-size:32px;
+  line-height:1.25;
+  font-weight:800;
+  overflow-wrap:anywhere;
 }
 
-.unit-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-
-  color: #A78BFA;
-
-  font-size: 11px;
-  font-weight: 800;
-
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-
-  margin-bottom: 10px;
+.note-header p{
+  margin:0;
+  color:#94a3b8;
+  font-size:14px;
+  line-height:1.7;
 }
 
-.unit-label span {
-  color: #475569;
+.material-card,
+.other-notes,
+.completion-card{
+  width:100%;
+  box-sizing:border-box;
+  background:#0f172a;
+  border:1px solid #1e293b;
+  border-radius:17px;
 }
 
-.note-header h1 {
-  margin: 0 0 11px;
-
-  color: #FFFFFF;
-
-  font-size: 32px;
-  line-height: 1.25;
-  font-weight: 800;
-
-  overflow-wrap: anywhere;
+.material-card{
+  padding:22px;
 }
 
-.note-header p {
-  margin: 0;
-
-  color: #94A3B8;
-
-  font-size: 14px;
-  line-height: 1.7;
+.material-header{
+  display:flex;
+  align-items:center;
+  gap:15px;
+  padding:17px;
+  margin-bottom:18px;
+  background:#111c31;
+  border:1px solid #24324a;
+  border-radius:13px;
 }
 
-
-/* =========================================================
-   NOTES CONTAINER
-   ========================================================= */
-
-.note-container {
-  width: 100%;
-
-  background: #0F172A;
-
-  border: 1px solid #1E293B;
-
-  border-radius: 18px;
-
-  padding: 30px;
-
-  box-sizing: border-box;
-
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.12);
+.material-icon{
+  width:48px;
+  height:48px;
+  min-width:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  background:#312e81;
+  color:#a78bfa;
+  font-size:20px;
 }
 
-.note-section {
-  padding-bottom: 26px;
-  margin-bottom: 26px;
-
-  border-bottom: 1px solid #1E293B;
+.material-info{
+  min-width:0;
+  flex:1;
 }
 
-.note-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
+.material-info h2{
+  margin:0 0 5px;
+  color:#fff;
+  font-size:16px;
+  overflow-wrap:anywhere;
 }
 
-.note-section h2 {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  margin: 0 0 13px;
-
-  color: #FFFFFF;
-
-  font-size: 19px;
-  line-height: 1.4;
-
-  font-weight: 700;
+.material-info p{
+  margin:0;
+  color:#94a3b8;
+  font-size:12px;
+  line-height:1.55;
 }
 
-.section-number {
-  min-width: 32px;
-  height: 32px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 9px;
-
-  background: #312E81;
-
-  color: #A78BFA;
-
-  font-size: 10px;
-  font-weight: 800;
-
-  flex-shrink: 0;
+.open-button{
+  flex-shrink:0;
+  padding:10px 14px;
+  border-radius:9px;
+  background:#8b5cf6;
+  color:#fff;
+  font-size:12px;
 }
 
-.note-text {
-  margin: 0;
-
-  color: #CBD5E1;
-
-  font-size: 14px;
-  line-height: 1.85;
-
-  overflow-wrap: anywhere;
+.open-button:hover{
+  background:#7c3aed;
 }
 
-.note-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* ACTUAL NOTE CONTENT */
 
-  padding: 0;
-  margin: 0;
-
-  list-style: none;
+.note-content{
+  width:100%;
+  min-height:300px;
+  padding:30px;
+  box-sizing:border-box;
+  border:1px solid #24324a;
+  border-radius:13px;
+  background:#020617;
+  color:#e2e8f0;
+  font-size:15px;
+  line-height:1.9;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  text-align:left;
 }
 
-.note-list li {
-  display: flex;
-  align-items: flex-start;
+/* OPTIONAL PDF */
 
-  gap: 10px;
-
-  color: #CBD5E1;
-
-  font-size: 14px;
-  line-height: 1.65;
-
-  overflow-wrap: anywhere;
+.attached-file{
+  margin-top:20px;
+  padding-top:20px;
+  border-top:1px solid #1e293b;
 }
 
-.bullet {
-  width: 22px;
-  height: 22px;
-
-  min-width: 22px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  margin-top: 1px;
-
-  border-radius: 7px;
-
-  background: #312E81;
-
-  color: #A78BFA;
-
-  font-size: 11px;
-  font-weight: 800;
+.attached-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:12px;
+  color:#cbd5e1;
+  font-size:13px;
+  font-weight:700;
 }
 
-
-/* =========================================================
-   COMPLETION
-   ========================================================= */
-
-.completion-card {
-  width: 100%;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 20px;
-
-  margin-top: 20px;
-  padding: 20px;
-
-  box-sizing: border-box;
-
-  background: #0F172A;
-
-  border: 1px solid #1E293B;
-
-  border-radius: 16px;
+.attached-title svg{
+  color:#f87171;
 }
 
-.completion-done {
-  border-color: #14532D;
-  background: #0B1F19;
+.pdf-viewer{
+  width:100%;
+  height:720px;
+  overflow:hidden;
+  border:1px solid #1e293b;
+  border-radius:13px;
+  background:#020617;
 }
 
-.completion-info {
-  display: flex;
-  align-items: center;
-
-  gap: 13px;
-
-  min-width: 0;
+.pdf-frame{
+  width:100%;
+  height:100%;
+  border:0;
 }
 
-.completion-icon {
-  width: 44px;
-  height: 44px;
-
-  min-width: 44px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 11px;
-
-  background: #312E81;
-  color: #A78BFA;
-
-  font-size: 19px;
+.other-notes{
+  margin-top:20px;
+  padding:20px;
 }
 
-.completion-done .completion-icon {
-  background: #065F46;
-  color: #6EE7B7;
+.section-label{
+  color:#a78bfa;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.8px;
 }
 
-.completion-info h3 {
-  margin: 0 0 4px;
-
-  color: #FFFFFF;
-
-  font-size: 14px;
+.other-notes h3{
+  margin:7px 0 4px;
+  color:#fff;
+  font-size:17px;
 }
 
-.completion-info p {
-  margin: 0;
-
-  color: #64748B;
-
-  font-size: 11px;
-  line-height: 1.5;
+.other-notes>p{
+  margin:0;
+  color:#64748b;
+  font-size:12px;
 }
 
-.completion-button {
-  min-height: 42px;
-
-  padding: 10px 17px;
-
-  background: #8B5CF6;
-
-  border: none;
-  border-radius: 10px;
-
-  color: #FFFFFF;
-
-  cursor: pointer;
-
-  font-size: 12px;
-  font-weight: 700;
-
-  white-space: nowrap;
-
-  transition: 0.2s;
+.notes-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:16px;
 }
 
-.completion-button:hover {
-  background: #7C3AED;
+.note-item{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 13px;
+  border:1px solid #334155;
+  border-radius:9px;
+  background:#111827;
+  color:#cbd5e1;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:600;
 }
 
-.completion-button-done {
-  background: #065F46;
+.note-item:hover,
+.note-item.active{
+  border-color:#8b5cf6;
+  background:#17112b;
+  color:#a78bfa;
 }
 
-.completion-button-done:hover {
-  background: #047857;
+.completion-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  margin-top:20px;
+  padding:20px;
 }
 
-
-/* =========================================================
-   NOT FOUND
-   ========================================================= */
-
-.not-found-card {
-  min-height: 60vh;
-
-  display: flex;
-  flex-direction: column;
-
-  align-items: center;
-  justify-content: center;
-
-  text-align: center;
-
-  padding: 30px;
+.completion-card.done{
+  border-color:#14532d;
+  background:#0b1f19;
 }
 
-.not-found-icon {
-  width: 65px;
-  height: 65px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 18px;
-
-  background: #1E293B;
-
-  color: #64748B;
-
-  font-size: 27px;
-
-  margin-bottom: 18px;
+.completion-left{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  min-width:0;
 }
 
-.not-found-card h2 {
-  margin: 0 0 8px;
-
-  color: #FFFFFF;
-
-  font-size: 22px;
+.completion-icon{
+  width:44px;
+  height:44px;
+  min-width:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:11px;
+  background:#312e81;
+  color:#a78bfa;
+  font-size:19px;
 }
 
-.not-found-card p {
-  max-width: 400px;
-
-  margin: 0;
-
-  color: #64748B;
-
-  font-size: 14px;
-  line-height: 1.6;
+.done .completion-icon{
+  background:#065f46;
+  color:#6ee7b7;
 }
 
-.primary-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  gap: 8px;
-
-  margin-top: 20px;
-
-  padding: 12px 18px;
-
-  background: #8B5CF6;
-
-  color: #FFFFFF;
-
-  border: none;
-  border-radius: 10px;
-
-  cursor: pointer;
-
-  font-weight: 700;
+.completion-left h3{
+  margin:0 0 4px;
+  color:#fff;
+  font-size:14px;
 }
 
-.primary-button:hover {
-  background: #7C3AED;
+.completion-left p{
+  margin:0;
+  color:#64748b;
+  font-size:11px;
+  line-height:1.5;
 }
 
+.complete-button{
+  min-height:42px;
+  padding:10px 17px;
+  border:0;
+  border-radius:10px;
+  background:#8b5cf6;
+  color:#fff;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+}
 
-/* =========================================================
-   TABLET
-   ========================================================= */
+.complete-button:hover:not(:disabled){
+  background:#7c3aed;
+}
 
-@media (max-width: 768px) {
+.complete-button:disabled{
+  opacity:.65;
+  cursor:wait;
+}
 
-  .notes-page {
-    max-width: 100%;
+.complete-button.done-button{
+  background:#065f46;
+}
+
+.complete-button.done-button:hover:not(:disabled){
+  background:#047857;
+}
+
+.primary-button{
+  margin-top:20px;
+  padding:12px 18px;
+  border:0;
+  border-radius:10px;
+  background:#8b5cf6;
+  color:#fff;
+}
+
+.state-card{
+  min-height:60vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:30px;
+  text-align:center;
+}
+
+.state-icon{
+  width:65px;
+  height:65px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:18px;
+  border-radius:18px;
+  background:#1e293b;
+  color:#a78bfa;
+  font-size:27px;
+}
+
+.state-card h2{
+  margin:0 0 8px;
+  color:#fff;
+  font-size:22px;
+}
+
+.state-card p{
+  max-width:430px;
+  margin:0;
+  color:#64748b;
+  font-size:14px;
+  line-height:1.6;
+}
+
+.spin{
+  animation:notes-spin 1s linear infinite;
+}
+
+@keyframes notes-spin{
+  from{
+    transform:rotate(0);
   }
 
-  .notes-top-bar {
-    flex-direction: column;
-    align-items: stretch;
-
-    gap: 14px;
-
-    margin-bottom: 22px;
-  }
-
-  .back-button {
-    width: fit-content;
-  }
-
-  .notes-actions {
-    width: 100%;
-
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-
-    gap: 9px;
-  }
-
-  .action-button {
-    width: 100%;
-    min-height: 44px;
-  }
-
-  .note-header {
-    margin-bottom: 20px;
-  }
-
-  .note-header h1 {
-    font-size: 25px;
-    line-height: 1.3;
-  }
-
-  .note-header p {
-    font-size: 13px;
-  }
-
-  .note-container {
-    padding: 20px;
-    border-radius: 15px;
-  }
-
-  .note-section {
-    padding-bottom: 21px;
-    margin-bottom: 21px;
-  }
-
-  .note-section h2 {
-    font-size: 17px;
-  }
-
-  .note-text,
-  .note-list li {
-    font-size: 13px;
-  }
-
-  .completion-card {
-    flex-direction: column;
-    align-items: stretch;
-
-    gap: 15px;
-
-    padding: 17px;
-  }
-
-  .completion-button {
-    width: 100%;
+  to{
+    transform:rotate(360deg);
   }
 }
 
+@media(max-width:768px){
 
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 480px) {
-
-  .notes-top-bar {
-    margin-bottom: 18px;
+  .top-bar{
+    flex-direction:column;
+    align-items:stretch;
   }
 
-  .back-button {
-    font-size: 12px;
+  .back-button{
+    width:fit-content;
   }
 
-  .notes-actions {
-    grid-template-columns: 1fr 1fr;
+  .quiz-button{
+    width:100%;
   }
 
-  .action-button {
-    min-height: 43px;
-
-    padding: 9px 7px;
-
-    font-size: 11px;
+  .note-header h1{
+    font-size:25px;
   }
 
-  .note-header {
-    margin-bottom: 17px;
+  .material-card{
+    padding:17px;
   }
 
-  .unit-label {
-    font-size: 9px;
+  .material-header{
+    align-items:flex-start;
+    flex-wrap:wrap;
   }
 
-  .note-header h1 {
-    font-size: 21px;
+  .material-info{
+    width:calc(100% - 64px);
   }
 
-  .note-header p {
-    font-size: 12px;
-    line-height: 1.65;
+  .open-button{
+    width:100%;
   }
 
-  .note-container {
-    padding: 16px;
-    border-radius: 14px;
+  .note-content{
+    padding:20px;
+    font-size:14px;
+    line-height:1.8;
   }
 
-  .note-section {
-    padding-bottom: 18px;
-    margin-bottom: 18px;
+  .pdf-viewer{
+    height:600px;
   }
 
-  .note-section h2 {
-    align-items: flex-start;
-
-    gap: 9px;
-
-    font-size: 15px;
+  .completion-card{
+    flex-direction:column;
+    align-items:stretch;
   }
 
-  .section-number {
-    width: 28px;
-    height: 28px;
-
-    min-width: 28px;
-
-    font-size: 9px;
-  }
-
-  .note-text,
-  .note-list li {
-    font-size: 12px;
-    line-height: 1.7;
-  }
-
-  .bullet {
-    width: 20px;
-    height: 20px;
-
-    min-width: 20px;
-
-    font-size: 10px;
-  }
-
-  .completion-card {
-    padding: 15px;
-    border-radius: 14px;
-  }
-
-  .completion-icon {
-    width: 40px;
-    height: 40px;
-
-    min-width: 40px;
-
-    font-size: 17px;
-  }
-
-  .completion-info h3 {
-    font-size: 13px;
-  }
-
-  .completion-info p {
-    font-size: 10px;
-  }
-
-  .completion-button {
-    min-height: 43px;
-
-    font-size: 11px;
+  .complete-button{
+    width:100%;
   }
 }
 
+@media(max-width:480px){
 
-/* =========================================================
-   VERY SMALL PHONE
-   ========================================================= */
-
-@media (max-width: 360px) {
-
-  .notes-actions {
-    gap: 6px;
+  .note-header h1{
+    font-size:21px;
   }
 
-  .action-button {
-    font-size: 10px;
-    padding: 8px 4px;
+  .note-header p{
+    font-size:12px;
   }
 
-  .note-header h1 {
-    font-size: 19px;
+  .material-card{
+    padding:14px;
   }
 
-  .note-container {
-    padding: 14px;
+  .material-header{
+    padding:14px;
   }
 
-  .note-section h2 {
-    font-size: 14px;
+  .note-content{
+    padding:17px;
+    font-size:13px;
+    line-height:1.75;
   }
 
-  .note-text,
-  .note-list li {
-    font-size: 11px;
+  .pdf-viewer{
+    height:500px;
+  }
+
+  .completion-card{
+    padding:15px;
   }
 }
-
 `;
 
 export default Notes;

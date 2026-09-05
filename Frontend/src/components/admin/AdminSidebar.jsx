@@ -40,12 +40,6 @@ function AdminSidebar() {
     },
 
     {
-      name: "Daily Planner",
-      path: "/admin/daily-planner",
-      icon: <FaCalendarAlt />,
-    },
-
-    {
       name: "Planner Activity",
       path: "/admin/daily-planner/activity",
       icon: <FaChartLine />,

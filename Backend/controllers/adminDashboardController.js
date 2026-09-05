@@ -3,7 +3,6 @@ const Subject = require("../models/Subject");
 const Note = require("../models/Note");
 const Paper = require("../models/Paper");
 const QuizQuestion = require("../models/QuizQuestion");
-const WeeklyTest = require("../models/WeeklyTest");
 const Exam = require("../models/Exam");
 
 /* ADMIN DASHBOARD */
@@ -18,7 +17,6 @@ const getAdminDashboard = async (req, res) => {
       totalNotes,
       totalPapers,
       totalQuizzes,
-      totalWeeklyTests,
       totalExams,
     ] = await Promise.all([
       User.countDocuments({
@@ -32,8 +30,6 @@ const getAdminDashboard = async (req, res) => {
       Paper.countDocuments(),
 
       QuizQuestion.countDocuments(),
-
-      WeeklyTest.countDocuments(),
 
       Exam.countDocuments(),
     ]);
@@ -61,7 +57,6 @@ const getAdminDashboard = async (req, res) => {
         totalNotes,
         totalPapers,
         totalQuizzes,
-        totalWeeklyTests,
         totalExams,
       },
 

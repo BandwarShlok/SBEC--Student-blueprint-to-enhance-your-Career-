@@ -1,5 +1,6 @@
-import { useContext, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
+
 import {
   FaHome,
   FaBook,
@@ -9,29 +10,13 @@ import {
   FaClipboardCheck,
   FaCog,
   FaUser,
-  FaSignOutAlt,
   FaGraduationCap,
   FaBars,
   FaTimes,
 } from "react-icons/fa";
 
-import { AuthContext } from "../context/AuthContextObject";
-
 function Sidebar() {
-  const { logout } = useContext(AuthContext);
-  const navigate = useNavigate();
-
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // =========================================
-  // LOGOUT
-  // =========================================
-
-  const handleLogout = () => {
-    setMobileOpen(false);
-    logout();
-    navigate("/login");
-  };
 
   // =========================================
   // STUDENT MENU
@@ -99,8 +84,9 @@ function Sidebar() {
 
           <div>
             <div className="student-mobile-title">SBEC</div>
-
-            <div className="student-mobile-subtitle">Student Panel</div>
+            <div className="student-mobile-subtitle">
+              Student Panel
+            </div>
           </div>
         </div>
 
@@ -180,30 +166,14 @@ function Sidebar() {
                 }`
               }
             >
-              <span className="student-sidebar-icon">{item.icon}</span>
+              <span className="student-sidebar-icon">
+                {item.icon}
+              </span>
 
               <span>{item.name}</span>
             </NavLink>
           ))}
         </nav>
-
-        {/* =========================================
-            LOGOUT
-        ========================================= */}
-
-        <div className="student-sidebar-bottom">
-          <button
-            type="button"
-            className="student-sidebar-logout"
-            onClick={handleLogout}
-          >
-            <span className="student-sidebar-icon">
-              <FaSignOutAlt />
-            </span>
-
-            <span>Logout</span>
-          </button>
-        </div>
       </aside>
 
       {/* =========================================
@@ -212,432 +182,59 @@ function Sidebar() {
 
       <style>
         {`
-
-        /* =========================================
-           DESKTOP SIDEBAR
-        ========================================= */
-
-        .student-sidebar {
-          position: fixed;
-          left: 0;
-          top: 0;
-
-          width: 260px;
-          height: 100vh;
-
-          background: #0F172A;
-
-          border-right: 1px solid #1E293B;
-
-          display: flex;
-          flex-direction: column;
-
-          z-index: 1000;
-
-          overflow-y: auto;
-          overflow-x: hidden;
-
-          box-sizing: border-box;
-        }
-
-
-        /* =========================================
-           DESKTOP LOGO
-        ========================================= */
-
-        .student-sidebar-logo {
-          height: 116px;
-
-          padding: 0 24px;
-
-          display: flex;
-          align-items: center;
-
-          border-bottom: 1px solid #1E293B;
-
-          box-sizing: border-box;
-
-          flex-shrink: 0;
-        }
-
-
-        .student-sidebar-brand {
-          display: flex;
-          align-items: center;
-
-          gap: 12px;
-        }
-
-
-        .student-sidebar-logo-icon {
-          width: 40px;
-          height: 40px;
-
-          border-radius: 12px;
-
-          background: #8B5CF6;
-
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          color: white;
-
-          font-size: 20px;
-
-          flex-shrink: 0;
-        }
-
-
-        .student-sidebar-brand h2 {
-          margin: 0;
-
-          color: white;
-
-          font-size: 22px;
-
-          font-weight: 800;
-        }
-
-
-        .student-sidebar-brand p {
-          margin: 4px 0 0;
-
-          color: #64748B;
-
-          font-size: 11px;
-        }
-
-
-        /* =========================================
-           NAVIGATION
-        ========================================= */
-
-        .student-sidebar-nav {
-          flex: 1;
-
-          padding: 22px 14px;
-
-          box-sizing: border-box;
-        }
-
-
-        .student-menu-heading {
-          margin: 0 0 12px;
-
-          padding: 0 12px;
-
-          color: #64748B;
-
-          font-size: 11px;
-
-          font-weight: 700;
-
-          text-transform: uppercase;
-
-          letter-spacing: 1px;
-        }
-
-
-        .student-sidebar-link {
-          display: flex;
-
-          align-items: center;
-
-          gap: 13px;
-
-          width: 100%;
-
-          padding: 12px 13px;
-
-          margin-bottom: 5px;
-
-          border-radius: 10px;
-
-          color: #94A3B8;
-
-          background: transparent;
-
-          text-decoration: none;
-
-          font-size: 14px;
-
-          font-weight: 500;
-
-          box-sizing: border-box;
-
-          transition:
-            background 0.2s ease,
-            color 0.2s ease;
-        }
-
-
-        .student-sidebar-link:hover {
-          background: #1E293B;
-
-          color: white;
-        }
-
-
-        .student-sidebar-link-active {
-          background: #8B5CF6 !important;
-
-          color: white !important;
-
-          font-weight: 600;
-
-          box-shadow:
-            0 8px 20px rgba(139, 92, 246, 0.20);
-        }
-
-
-        .student-sidebar-icon {
-          width: 20px;
-
-          min-width: 20px;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content: center;
-
-          font-size: 15px;
-        }
-
-
-        /* =========================================
-           LOGOUT
-        ========================================= */
-
-        .student-sidebar-bottom {
-          padding: 15px 14px 20px;
-
-          border-top: 1px solid #1E293B;
-
-          flex-shrink: 0;
-        }
-
-
-        .student-sidebar-logout {
-          width: 100%;
-
-          display: flex;
-
-          align-items: center;
-
-          gap: 13px;
-
-          padding: 12px 13px;
-
-          border: none;
-
-          border-radius: 10px;
-
-          background: transparent;
-
-          color: #94A3B8;
-
-          font-size: 14px;
-
-          text-align: left;
-
-          cursor: pointer;
-
-          transition:
-            background 0.2s ease,
-            color 0.2s ease;
-        }
-
-
-        .student-sidebar-logout:hover {
-          background: #1E293B;
-
-          color: white;
-        }
-
-
-        /* =========================================
-           MOBILE HEADER
-        ========================================= */
-
-        .student-mobile-header {
-          display: none;
-        }
-
-
-        .student-mobile-close {
-          display: none;
-        }
-
-
-        .student-sidebar-overlay {
-          display: none;
-        }
-
-
-        /* =========================================
-           MOBILE
-        ========================================= */
-
-        @media (max-width: 768px) {
-
-          .student-mobile-header {
+          /* =========================================
+             DESKTOP SIDEBAR
+          ========================================= */
+
+          .student-sidebar {
             position: fixed;
-
-            top: 0;
             left: 0;
-            right: 0;
+            top: 0;
 
-            height: 92px;
+            width: 260px;
+            height: 100vh;
 
             background: #0F172A;
 
-            border-bottom: 1px solid #1E293B;
+            border-right: 1px solid #1E293B;
 
             display: flex;
+            flex-direction: column;
 
-            align-items: center;
+            z-index: 1000;
 
-            justify-content: space-between;
-
-            padding: 0 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
 
             box-sizing: border-box;
-
-            z-index: 900;
           }
 
 
-          .student-mobile-brand {
-            display: flex;
+          /* =========================================
+             DESKTOP LOGO
+          ========================================= */
 
-            align-items: center;
+          .student-sidebar-logo {
+            height: 116px;
 
-            gap: 12px;
-          }
-
-
-          .student-mobile-logo {
-            width: 54px;
-            height: 54px;
-
-            border-radius: 15px;
-
-            background: #8B5CF6;
-
-            color: white;
+            padding: 0 24px;
 
             display: flex;
-
             align-items: center;
 
-            justify-content: center;
+            border-bottom: 1px solid #1E293B;
 
-            font-size: 25px;
+            box-sizing: border-box;
 
             flex-shrink: 0;
           }
 
 
-          .student-mobile-title {
-            color: white;
-
-            font-size: 25px;
-
-            line-height: 1;
-
-            font-weight: 800;
-          }
-
-
-          .student-mobile-subtitle {
-            color: #64748B;
-
-            font-size: 12px;
-
-            margin-top: 5px;
-          }
-
-
-          /* =========================================
-             MOBILE MENU BUTTON
-          ========================================= */
-
-          .student-mobile-menu-button {
-            width: 56px;
-            height: 56px;
-
-            border-radius: 15px;
-
-            border: 2px solid #334155;
-
-            background: #1E293B;
-
-            color: white;
-
+          .student-sidebar-brand {
             display: flex;
-
             align-items: center;
 
-            justify-content: center;
-
-            font-size: 24px;
-
-            cursor: pointer;
-
-            transition: 0.2s ease;
-          }
-
-
-          .student-mobile-menu-button:hover {
-            background: #8B5CF6;
-
-            border-color: #8B5CF6;
-          }
-
-
-          .student-mobile-menu-button:active {
-            transform: scale(0.96);
-          }
-
-
-          /* =========================================
-             MOBILE SIDEBAR DRAWER
-          ========================================= */
-
-          .student-sidebar {
-            width: 280px;
-
-            max-width: 85vw;
-
-            transform: translateX(-100%);
-
-            transition:
-              transform 0.25s ease;
-
-            box-shadow:
-              10px 0 30px rgba(0, 0, 0, 0.4);
-
-            z-index: 1100;
-          }
-
-
-          .student-sidebar-open {
-            transform: translateX(0);
-          }
-
-
-          /* =========================================
-             MOBILE SIDEBAR HEADER
-          ========================================= */
-
-          .student-sidebar-logo {
-            height: 88px;
-
-            padding: 0 18px;
-
-            justify-content: space-between;
+            gap: 12px;
           }
 
 
@@ -645,163 +242,470 @@ function Sidebar() {
             width: 40px;
             height: 40px;
 
+            border-radius: 12px;
+
+            background: #8B5CF6;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: white;
+
             font-size: 20px;
+
+            flex-shrink: 0;
           }
 
 
           .student-sidebar-brand h2 {
-            font-size: 21px;
+            margin: 0;
+
+            color: white;
+
+            font-size: 22px;
+
+            font-weight: 800;
           }
 
 
           .student-sidebar-brand p {
-            font-size: 10px;
+            margin: 4px 0 0;
+
+            color: #64748B;
+
+            font-size: 11px;
           }
 
 
           /* =========================================
-             CLOSE BUTTON
+             NAVIGATION
           ========================================= */
 
-          .student-mobile-close {
-            display: flex;
+          .student-sidebar-nav {
+            flex: 1;
 
-            width: 40px;
-            height: 40px;
+            padding: 22px 14px;
 
-            margin-left: auto;
-
-            border: none;
-
-            border-radius: 10px;
-
-            background: #1E293B;
-
-            color: #CBD5E1;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-size: 18px;
-
-            cursor: pointer;
-
-            transition: 0.2s ease;
+            box-sizing: border-box;
           }
 
 
-          .student-mobile-close:hover {
-            background: #8B5CF6;
+          .student-menu-heading {
+            margin: 0 0 12px;
+
+            padding: 0 12px;
+
+            color: #64748B;
+
+            font-size: 11px;
+
+            font-weight: 700;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+          }
+
+
+          .student-sidebar-link {
+            display: flex;
+
+            align-items: center;
+
+            gap: 13px;
+
+            width: 100%;
+
+            padding: 12px 13px;
+
+            margin-bottom: 5px;
+
+            border-radius: 10px;
+
+            color: #94A3B8;
+
+            background: transparent;
+
+            text-decoration: none;
+
+            font-size: 14px;
+
+            font-weight: 500;
+
+            box-sizing: border-box;
+
+            transition:
+              background 0.2s ease,
+              color 0.2s ease;
+          }
+
+
+          .student-sidebar-link:hover {
+            background: #1E293B;
 
             color: white;
           }
 
 
-          /* =========================================
-             OVERLAY
-          ========================================= */
+          .student-sidebar-link-active {
+            background: #8B5CF6 !important;
 
-          .student-sidebar-overlay {
-            display: block;
+            color: white !important;
 
-            position: fixed;
+            font-weight: 600;
 
-            inset: 0;
+            box-shadow:
+              0 8px 20px rgba(139, 92, 246, 0.20);
+          }
 
-            background: rgba(0, 0, 0, 0.65);
 
-            z-index: 1050;
+          .student-sidebar-icon {
+            width: 20px;
+
+            min-width: 20px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 15px;
           }
 
 
           /* =========================================
-             MOBILE NAVIGATION
+             MOBILE HEADER
           ========================================= */
-
-          .student-sidebar-nav {
-            padding: 20px 12px;
-
-            overflow-y: auto;
-          }
-
-
-          .student-menu-heading {
-            margin-bottom: 12px;
-          }
-
-
-          .student-sidebar-link {
-            padding: 14px 13px;
-
-            margin-bottom: 6px;
-
-            font-size: 14px;
-          }
-
-
-          /* =========================================
-             MOBILE LOGOUT
-          ========================================= */
-
-          .student-sidebar-bottom {
-            padding: 12px 12px 18px;
-          }
-
-
-          .student-sidebar-logout {
-            padding: 14px 13px;
-          }
-
-        }
-
-
-        /* =========================================
-           VERY SMALL PHONES
-        ========================================= */
-
-        @media (max-width: 400px) {
 
           .student-mobile-header {
-            height: 84px;
-
-            padding: 0 16px;
+            display: none;
           }
 
 
-          .student-mobile-logo {
-            width: 48px;
-            height: 48px;
-
-            border-radius: 13px;
-
-            font-size: 22px;
+          .student-mobile-close {
+            display: none;
           }
 
 
-          .student-mobile-title {
-            font-size: 23px;
+          .student-sidebar-overlay {
+            display: none;
           }
 
 
-          .student-mobile-subtitle {
-            font-size: 11px;
+          /* =========================================
+             MOBILE
+          ========================================= */
+
+          @media (max-width: 768px) {
+
+            .student-mobile-header {
+              position: fixed;
+
+              top: 0;
+              left: 0;
+              right: 0;
+
+              height: 92px;
+
+              background: #0F172A;
+
+              border-bottom: 1px solid #1E293B;
+
+              display: flex;
+
+              align-items: center;
+
+              justify-content: space-between;
+
+              padding: 0 20px;
+
+              box-sizing: border-box;
+
+              z-index: 900;
+            }
+
+
+            .student-mobile-brand {
+              display: flex;
+
+              align-items: center;
+
+              gap: 12px;
+            }
+
+
+            .student-mobile-logo {
+              width: 54px;
+              height: 54px;
+
+              border-radius: 15px;
+
+              background: #8B5CF6;
+
+              color: white;
+
+              display: flex;
+
+              align-items: center;
+
+              justify-content: center;
+
+              font-size: 25px;
+
+              flex-shrink: 0;
+            }
+
+
+            .student-mobile-title {
+              color: white;
+
+              font-size: 25px;
+
+              line-height: 1;
+
+              font-weight: 800;
+            }
+
+
+            .student-mobile-subtitle {
+              color: #64748B;
+
+              font-size: 12px;
+
+              margin-top: 5px;
+            }
+
+
+            /* =========================================
+               MOBILE MENU BUTTON
+            ========================================= */
+
+            .student-mobile-menu-button {
+              width: 56px;
+              height: 56px;
+
+              border-radius: 15px;
+
+              border: 2px solid #334155;
+
+              background: #1E293B;
+
+              color: white;
+
+              display: flex;
+
+              align-items: center;
+
+              justify-content: center;
+
+              font-size: 24px;
+
+              cursor: pointer;
+
+              transition: 0.2s ease;
+            }
+
+
+            .student-mobile-menu-button:hover {
+              background: #8B5CF6;
+
+              border-color: #8B5CF6;
+            }
+
+
+            .student-mobile-menu-button:active {
+              transform: scale(0.96);
+            }
+
+
+            /* =========================================
+               MOBILE SIDEBAR DRAWER
+            ========================================= */
+
+            .student-sidebar {
+              width: 280px;
+
+              max-width: 85vw;
+
+              transform: translateX(-100%);
+
+              transition:
+                transform 0.25s ease;
+
+              box-shadow:
+                10px 0 30px rgba(0, 0, 0, 0.4);
+
+              z-index: 1100;
+            }
+
+
+            .student-sidebar-open {
+              transform: translateX(0);
+            }
+
+
+            /* =========================================
+               MOBILE SIDEBAR HEADER
+            ========================================= */
+
+            .student-sidebar-logo {
+              height: 88px;
+
+              padding: 0 18px;
+
+              justify-content: space-between;
+            }
+
+
+            .student-sidebar-logo-icon {
+              width: 40px;
+              height: 40px;
+
+              font-size: 20px;
+            }
+
+
+            .student-sidebar-brand h2 {
+              font-size: 21px;
+            }
+
+
+            .student-sidebar-brand p {
+              font-size: 10px;
+            }
+
+
+            /* =========================================
+               CLOSE BUTTON
+            ========================================= */
+
+            .student-mobile-close {
+              display: flex;
+
+              width: 40px;
+              height: 40px;
+
+              margin-left: auto;
+
+              border: none;
+
+              border-radius: 10px;
+
+              background: #1E293B;
+
+              color: #CBD5E1;
+
+              align-items: center;
+
+              justify-content: center;
+
+              font-size: 18px;
+
+              cursor: pointer;
+
+              transition: 0.2s ease;
+            }
+
+
+            .student-mobile-close:hover {
+              background: #8B5CF6;
+
+              color: white;
+            }
+
+
+            /* =========================================
+               OVERLAY
+            ========================================= */
+
+            .student-sidebar-overlay {
+              display: block;
+
+              position: fixed;
+
+              inset: 0;
+
+              background: rgba(0, 0, 0, 0.65);
+
+              z-index: 1050;
+            }
+
+
+            /* =========================================
+               MOBILE NAVIGATION
+            ========================================= */
+
+            .student-sidebar-nav {
+              padding: 20px 12px;
+
+              overflow-y: auto;
+            }
+
+
+            .student-menu-heading {
+              margin-bottom: 12px;
+            }
+
+
+            .student-sidebar-link {
+              padding: 14px 13px;
+
+              margin-bottom: 6px;
+
+              font-size: 14px;
+            }
+
           }
 
 
-          .student-mobile-menu-button {
-            width: 50px;
-            height: 50px;
+          /* =========================================
+             VERY SMALL PHONES
+          ========================================= */
 
-            font-size: 21px;
+          @media (max-width: 400px) {
+
+            .student-mobile-header {
+              height: 84px;
+
+              padding: 0 16px;
+            }
+
+
+            .student-mobile-logo {
+              width: 48px;
+              height: 48px;
+
+              border-radius: 13px;
+
+              font-size: 22px;
+            }
+
+
+            .student-mobile-title {
+              font-size: 23px;
+            }
+
+
+            .student-mobile-subtitle {
+              font-size: 11px;
+            }
+
+
+            .student-mobile-menu-button {
+              width: 50px;
+              height: 50px;
+
+              font-size: 21px;
+            }
+
+
+            .student-sidebar {
+              width: 275px;
+            }
+
           }
-
-
-          .student-sidebar {
-            width: 275px;
-          }
-
-        }
 
         `}
       </style>

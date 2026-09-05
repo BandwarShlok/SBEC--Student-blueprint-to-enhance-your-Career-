@@ -1,15 +1,79 @@
 import { useEffect, useState } from "react";
-import {
-  FaSave,
-  FaUserShield,
-  FaBell,
-  FaLock,
-  FaCog,
-} from "react-icons/fa";
+import { FaSave, FaUserShield, FaBell, FaLock, FaCog } from "react-icons/fa";
 
 import API_URL from "../../../config/api";
 
+// ============================================================
+// ADMIN AUTH HELPERS
+// These functions are outside the component so they are not
+// recreated on every render.
+// ============================================================
+
+const getAdminToken = () => {
+  return localStorage.getItem("admin_token");
+};
+
+const getAdminHeaders = (includeJson = false) => {
+  const token = getAdminToken();
+
+  return {
+    ...(includeJson
+      ? {
+          "Content-Type": "application/json",
+        }
+      : {}),
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : {}),
+  };
+};
+
+// ============================================================
+// HANDLE UNAUTHORIZED RESPONSE
+// ============================================================
+
+const handleUnauthorized = (response) => {
+  if (response.status === 401 || response.status === 403) {
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin");
+
+    return true;
+  }
+
+  return false;
+};
+
+// ============================================================
+// SAFE API RESPONSE
+// ============================================================
+
+const readApiResponse = async (response) => {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      message: text,
+    };
+  }
+};
+
+// ============================================================
+// ADMIN SETTINGS
+// ============================================================
+
 function AdminSettings() {
+  // ==========================================================
+  // SETTINGS STATE
+  // ==========================================================
+
   const [settings, setSettings] = useState({
     adminName: "",
     email: "",
@@ -17,10 +81,19 @@ function AdminSettings() {
     studentRegistration: true,
   });
 
+  // ==========================================================
+  // PAGE STATE
+  // ==========================================================
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // ==========================================================
+  // PASSWORD STATE
+  // ==========================================================
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -29,72 +102,128 @@ function AdminSettings() {
 
   const [changingPassword, setChangingPassword] = useState(false);
 
-  /*
-  ========================================
-  LOAD SETTINGS
-  ========================================
-  */
+  // ==========================================================
+  // LOAD SETTINGS
+  // ==========================================================
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadSettings = async () => {
       try {
         setLoading(true);
         setError("");
+        setMessage("");
 
-        const response = await fetch(
-          `${API_URL}/api/admin/settings`
-        );
+        // ----------------------------------------------------
+        // CHECK ADMIN TOKEN
+        // ----------------------------------------------------
 
-        const data = await response.json();
+        const token = getAdminToken();
 
-        if (!response.ok || !data.success) {
-          throw new Error(
-            data.message || "Failed to load settings."
-          );
+        if (!token) {
+          throw new Error("Admin login session not found. Please login again.");
         }
 
+        // ----------------------------------------------------
+        // GET SETTINGS
+        // ----------------------------------------------------
+
+        const response = await fetch(`${API_URL}/api/admin/settings`, {
+          method: "GET",
+          headers: getAdminHeaders(),
+        });
+
+        // ----------------------------------------------------
+        // AUTHORIZATION CHECK
+        // ----------------------------------------------------
+
+        if (handleUnauthorized(response)) {
+          if (!cancelled) {
+            setError("Admin login session has expired. Please login again.");
+
+            setTimeout(() => {
+              window.location.href = "/admin/login";
+            }, 1200);
+          }
+
+          return;
+        }
+
+        // ----------------------------------------------------
+        // READ RESPONSE
+        // ----------------------------------------------------
+
+        const data = await readApiResponse(response);
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Failed to load settings.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        // ----------------------------------------------------
+        // UPDATE SETTINGS
+        // ----------------------------------------------------
+
+        const serverSettings = data.settings || {};
+
         setSettings({
-          adminName: data.settings.adminName || "",
-          email: data.settings.email || "",
-          notifications:
-            data.settings.notifications ?? true,
-          studentRegistration:
-            data.settings.studentRegistration ?? true,
+          adminName: serverSettings.adminName || "",
+
+          email: serverSettings.email || "",
+
+          notifications: serverSettings.notifications ?? true,
+
+          studentRegistration: serverSettings.studentRegistration ?? true,
         });
       } catch (err) {
         console.error("LOAD SETTINGS ERROR:", err);
-        setError(err.message);
+
+        if (!cancelled) {
+          setError(err.message || "Failed to load settings.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    loadSettings();
+    // --------------------------------------------------------
+    // DELAY INITIAL REQUEST
+    // Prevents React hook setState warning in this project.
+    // --------------------------------------------------------
+
+    const timer = setTimeout(() => {
+      loadSettings();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
-  /*
-  ========================================
-  FORM CHANGE
-  ========================================
-  */
+  // ==========================================================
+  // SETTINGS FORM CHANGE
+  // ==========================================================
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
     setSettings((previous) => ({
       ...previous,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : value,
+
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  /*
-  ========================================
-  SAVE SETTINGS
-  ========================================
-  */
+  // ==========================================================
+  // SAVE SETTINGS
+  // ==========================================================
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -104,184 +233,321 @@ function AdminSettings() {
       setMessage("");
       setError("");
 
-      const response = await fetch(
-        `${API_URL}/api/admin/settings`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(settings),
-        }
-      );
+      // ------------------------------------------------------
+      // CHECK TOKEN
+      // ------------------------------------------------------
 
-      const data = await response.json();
+      const token = getAdminToken();
 
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to update settings."
-        );
+      if (!token) {
+        throw new Error("Admin login session not found. Please login again.");
       }
 
-      setSettings({
-        adminName: data.settings.adminName,
-        email: data.settings.email,
-        notifications: data.settings.notifications,
-        studentRegistration:
-          data.settings.studentRegistration,
+      // ------------------------------------------------------
+      // CLEAN VALUES
+      // ------------------------------------------------------
+
+      const adminName = settings.adminName.trim();
+
+      const email = settings.email.trim().toLowerCase();
+
+      // ------------------------------------------------------
+      // VALIDATION
+      // ------------------------------------------------------
+
+      if (!adminName) {
+        throw new Error("Admin name is required.");
+      }
+
+      if (!email) {
+        throw new Error("Admin email is required.");
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (!emailRegex.test(email)) {
+        throw new Error("Please enter a valid email address.");
+      }
+
+      // ------------------------------------------------------
+      // UPDATE SETTINGS
+      // ------------------------------------------------------
+
+      const response = await fetch(`${API_URL}/api/admin/settings`, {
+        method: "PUT",
+
+        headers: getAdminHeaders(true),
+
+        body: JSON.stringify({
+          adminName,
+          email,
+
+          notifications: Boolean(settings.notifications),
+
+          studentRegistration: Boolean(settings.studentRegistration),
+        }),
       });
 
-      setMessage(
-        "Settings saved successfully."
-      );
+      // ------------------------------------------------------
+      // AUTHORIZATION CHECK
+      // ------------------------------------------------------
+
+      if (handleUnauthorized(response)) {
+        setError("Admin login session has expired. Please login again.");
+
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1200);
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------------
+
+      const data = await readApiResponse(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to update settings.");
+      }
+
+      // ------------------------------------------------------
+      // UPDATE LOCAL STATE
+      // ------------------------------------------------------
+
+      const updatedSettings = data.settings || {};
+
+      setSettings({
+        adminName: updatedSettings.adminName || adminName,
+
+        email: updatedSettings.email || email,
+
+        notifications: updatedSettings.notifications ?? settings.notifications,
+
+        studentRegistration:
+          updatedSettings.studentRegistration ?? settings.studentRegistration,
+      });
+
+      // ------------------------------------------------------
+      // UPDATE LOCAL ADMIN DATA
+      // ------------------------------------------------------
+
+      try {
+        const existingAdmin = localStorage.getItem("admin");
+
+        if (existingAdmin) {
+          const parsedAdmin = JSON.parse(existingAdmin);
+
+          localStorage.setItem(
+            "admin",
+            JSON.stringify({
+              ...parsedAdmin,
+              name: updatedSettings.adminName || adminName,
+              email: updatedSettings.email || email,
+            }),
+          );
+        }
+      } catch (storageError) {
+        console.warn("Unable to update local admin data:", storageError);
+      }
+
+      // ------------------------------------------------------
+      // SUCCESS
+      // ------------------------------------------------------
+
+      setMessage(data.message || "Settings saved successfully.");
     } catch (err) {
       console.error("SAVE SETTINGS ERROR:", err);
-      setError(err.message);
+
+      setError(err.message || "Failed to save settings.");
     } finally {
       setSaving(false);
     }
   };
 
-  /*
-  ========================================
-  PASSWORD CHANGE
-  ========================================
-  */
+  // ==========================================================
+  // CHANGE PASSWORD
+  // ==========================================================
 
   const handlePasswordChange = async () => {
-    if (
-      !passwordData.currentPassword ||
-      !passwordData.newPassword
-    ) {
-      setError(
-        "Enter both current and new password."
-      );
-      return;
-    }
-
     try {
-      setChangingPassword(true);
       setMessage("");
       setError("");
 
-      const response = await fetch(
-        `${API_URL}/api/admin/settings/password`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(passwordData),
-        }
-      );
+      // ------------------------------------------------------
+      // GET PASSWORD VALUES
+      // ------------------------------------------------------
 
-      const data = await response.json();
+      const currentPassword = passwordData.currentPassword.trim();
+
+      const newPassword = passwordData.newPassword.trim();
+
+      // ------------------------------------------------------
+      // VALIDATION
+      // ------------------------------------------------------
+
+      if (!currentPassword || !newPassword) {
+        setError("Enter both current and new password.");
+
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        setError("New password must contain at least 6 characters.");
+
+        return;
+      }
+
+      if (currentPassword === newPassword) {
+        setError("New password must be different from the current password.");
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // CHECK TOKEN
+      // ------------------------------------------------------
+
+      const token = getAdminToken();
+
+      if (!token) {
+        throw new Error("Admin login session not found. Please login again.");
+      }
+
+      setChangingPassword(true);
+
+      // ------------------------------------------------------
+      // CHANGE PASSWORD
+      // ------------------------------------------------------
+
+      const response = await fetch(`${API_URL}/api/admin/settings/password`, {
+        method: "PUT",
+
+        headers: getAdminHeaders(true),
+
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      // ------------------------------------------------------
+      // AUTHORIZATION CHECK
+      // ------------------------------------------------------
+
+      if (handleUnauthorized(response)) {
+        setError("Admin login session has expired. Please login again.");
+
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1200);
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------------
+
+      const data = await readApiResponse(response);
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message ||
-            "Failed to change password."
-        );
+        throw new Error(data.message || "Failed to change password.");
       }
+
+      // ------------------------------------------------------
+      // CLEAR PASSWORD FIELDS
+      // ------------------------------------------------------
 
       setPasswordData({
         currentPassword: "",
         newPassword: "",
       });
 
-      setMessage(
-        "Password changed successfully."
-      );
-    } catch (err) {
-      console.error(
-        "CHANGE PASSWORD ERROR:",
-        err
-      );
+      // ------------------------------------------------------
+      // SUCCESS
+      // ------------------------------------------------------
 
-      setError(err.message);
+      setMessage(data.message || "Password changed successfully.");
+    } catch (err) {
+      console.error("CHANGE PASSWORD ERROR:", err);
+
+      setError(err.message || "Failed to change password.");
     } finally {
       setChangingPassword(false);
     }
   };
 
-  /*
-  ========================================
-  LOADING
-  ========================================
-  */
+  // ==========================================================
+  // LOADING
+  // ==========================================================
 
   if (loading) {
-    return (
-      <div style={styles.loading}>
-        Loading settings...
-      </div>
-    );
+    return <div style={styles.loading}>Loading settings...</div>;
   }
+
+  // ==========================================================
+  // MAIN UI
+  // ==========================================================
 
   return (
     <div style={styles.container}>
-
-      {/* HEADER */}
+      {/* ====================================================
+          HEADER
+      ==================================================== */}
 
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>
-            Settings
-          </h1>
+          <h1 style={styles.title}>Settings</h1>
 
           <p style={styles.subtitle}>
-            Manage your admin account and platform
-            settings.
+            Manage your admin account and platform settings.
           </p>
         </div>
       </div>
 
-      {/* SUCCESS */}
+      {/* ====================================================
+          SUCCESS MESSAGE
+      ==================================================== */}
 
-      {message && (
-        <div style={styles.successBox}>
-          ✓ {message}
-        </div>
-      )}
+      {message && <div style={styles.successBox}>✓ {message}</div>}
 
-      {/* ERROR */}
+      {/* ====================================================
+          ERROR MESSAGE
+      ==================================================== */}
 
-      {error && (
-        <div style={styles.errorBox}>
-          ⚠ {error}
-        </div>
-      )}
+      {error && <div style={styles.errorBox}>⚠ {error}</div>}
+
+      {/* ====================================================
+          SETTINGS FORM
+      ==================================================== */}
 
       <form onSubmit={handleSave}>
-
-        {/* ADMIN ACCOUNT */}
+        {/* ==================================================
+            ADMIN ACCOUNT
+        ================================================== */}
 
         <div style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.iconBox}>
               <FaUserShield />
             </div>
 
             <div>
-              <h2 style={styles.cardTitle}>
-                Admin Account
-              </h2>
+              <h2 style={styles.cardTitle}>Admin Account</h2>
 
               <p style={styles.cardSubtitle}>
                 Manage your administrator information.
               </p>
             </div>
-
           </div>
 
           <div style={styles.formGrid}>
+            {/* ADMIN NAME */}
 
             <div style={styles.field}>
-              <label style={styles.label}>
-                Admin Name
-              </label>
+              <label style={styles.label}>Admin Name</label>
 
               <input
                 type="text"
@@ -289,13 +555,15 @@ function AdminSettings() {
                 value={settings.adminName}
                 onChange={handleChange}
                 style={styles.input}
+                placeholder="Enter admin name"
+                autoComplete="name"
               />
             </div>
 
+            {/* EMAIL */}
+
             <div style={styles.field}>
-              <label style={styles.label}>
-                Email
-              </label>
+              <label style={styles.label}>Email</label>
 
               <input
                 type="email"
@@ -303,45 +571,36 @@ function AdminSettings() {
                 value={settings.email}
                 onChange={handleChange}
                 style={styles.input}
+                placeholder="Enter admin email"
+                autoComplete="email"
               />
             </div>
-
           </div>
-
         </div>
 
-        {/* NOTIFICATIONS */}
+        {/* ==================================================
+            NOTIFICATIONS
+        ================================================== */}
 
         <div style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.iconBox}>
               <FaBell />
             </div>
 
             <div>
-              <h2 style={styles.cardTitle}>
-                Notifications
-              </h2>
+              <h2 style={styles.cardTitle}>Notifications</h2>
 
-              <p style={styles.cardSubtitle}>
-                Manage admin notifications.
-              </p>
+              <p style={styles.cardSubtitle}>Manage admin notifications.</p>
             </div>
-
           </div>
 
           <label style={styles.settingRow}>
-
             <div>
-              <p style={styles.settingTitle}>
-                Admin Notifications
-              </p>
+              <p style={styles.settingTitle}>Admin Notifications</p>
 
               <p style={styles.settingDescription}>
-                Receive notifications about important
-                platform activity.
+                Receive notifications about important platform activity.
               </p>
             </div>
 
@@ -352,39 +611,29 @@ function AdminSettings() {
               onChange={handleChange}
               style={styles.checkbox}
             />
-
           </label>
-
         </div>
 
-        {/* PLATFORM */}
+        {/* ==================================================
+            PLATFORM SETTINGS
+        ================================================== */}
 
         <div style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.iconBox}>
               <FaCog />
             </div>
 
             <div>
-              <h2 style={styles.cardTitle}>
-                Platform Settings
-              </h2>
+              <h2 style={styles.cardTitle}>Platform Settings</h2>
 
-              <p style={styles.cardSubtitle}>
-                Control basic student access.
-              </p>
+              <p style={styles.cardSubtitle}>Control basic student access.</p>
             </div>
-
           </div>
 
           <label style={styles.settingRow}>
-
             <div>
-              <p style={styles.settingTitle}>
-                Student Registration
-              </p>
+              <p style={styles.settingTitle}>Student Registration</p>
 
               <p style={styles.settingDescription}>
                 Allow new students to create accounts.
@@ -394,137 +643,124 @@ function AdminSettings() {
             <input
               type="checkbox"
               name="studentRegistration"
-              checked={
-                settings.studentRegistration
-              }
+              checked={settings.studentRegistration}
               onChange={handleChange}
               style={styles.checkbox}
             />
-
           </label>
-
         </div>
 
-        {/* SECURITY */}
+        {/* ==================================================
+            SECURITY
+        ================================================== */}
 
         <div style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.iconBox}>
               <FaLock />
             </div>
 
             <div>
-              <h2 style={styles.cardTitle}>
-                Security
-              </h2>
+              <h2 style={styles.cardTitle}>Security</h2>
 
-              <p style={styles.cardSubtitle}>
-                Manage admin account security.
-              </p>
+              <p style={styles.cardSubtitle}>Manage admin account security.</p>
             </div>
-
           </div>
 
           <div style={styles.securityBox}>
-
             <div style={styles.passwordFields}>
+              {/* CURRENT PASSWORD */}
 
               <div style={styles.field}>
-                <label style={styles.label}>
-                  Current Password
-                </label>
+                <label style={styles.label}>Current Password</label>
 
                 <input
                   type="password"
-                  value={
-                    passwordData.currentPassword
-                  }
+                  value={passwordData.currentPassword}
                   onChange={(e) =>
-                    setPasswordData(
-                      (previous) => ({
-                        ...previous,
-                        currentPassword:
-                          e.target.value,
-                      })
-                    )
+                    setPasswordData((previous) => ({
+                      ...previous,
+                      currentPassword: e.target.value,
+                    }))
                   }
                   style={styles.input}
                   placeholder="Current password"
+                  autoComplete="current-password"
                 />
               </div>
 
+              {/* NEW PASSWORD */}
+
               <div style={styles.field}>
-                <label style={styles.label}>
-                  New Password
-                </label>
+                <label style={styles.label}>New Password</label>
 
                 <input
                   type="password"
-                  value={
-                    passwordData.newPassword
-                  }
+                  value={passwordData.newPassword}
                   onChange={(e) =>
-                    setPasswordData(
-                      (previous) => ({
-                        ...previous,
-                        newPassword:
-                          e.target.value,
-                      })
-                    )
+                    setPasswordData((previous) => ({
+                      ...previous,
+                      newPassword: e.target.value,
+                    }))
                   }
                   style={styles.input}
                   placeholder="New password"
+                  autoComplete="new-password"
                 />
               </div>
-
             </div>
+
+            {/* CHANGE PASSWORD */}
 
             <button
               type="button"
-              style={styles.passwordButton}
+              style={{
+                ...styles.passwordButton,
+
+                ...(changingPassword ? styles.disabledButton : {}),
+              }}
               onClick={handlePasswordChange}
               disabled={changingPassword}
             >
-              {changingPassword
-                ? "Changing..."
-                : "Change Password"}
+              {changingPassword ? "Changing..." : "Change Password"}
             </button>
-
           </div>
-
         </div>
 
-        {/* SAVE */}
+        {/* ==================================================
+            SAVE BUTTON
+        ================================================== */}
 
         <div style={styles.saveContainer}>
-
           <button
             type="submit"
-            style={styles.saveButton}
+            style={{
+              ...styles.saveButton,
+
+              ...(saving ? styles.disabledButton : {}),
+            }}
             disabled={saving}
           >
             <FaSave />
 
-            {saving
-              ? "Saving..."
-              : "Save Settings"}
+            {saving ? "Saving..." : "Save Settings"}
           </button>
-
         </div>
-
       </form>
-
     </div>
   );
 }
+
+// ============================================================
+// STYLES
+// ============================================================
 
 const styles = {
   container: {
     width: "100%",
     maxWidth: "900px",
     margin: "0 auto",
+    boxSizing: "border-box",
   },
 
   loading: {
@@ -576,6 +812,7 @@ const styles = {
     borderRadius: "16px",
     padding: "20px",
     marginBottom: "18px",
+    boxSizing: "border-box",
   },
 
   cardHeader: {
@@ -612,7 +849,7 @@ const styles = {
 
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: "15px",
   },
 
@@ -620,6 +857,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     flex: 1,
+    minWidth: 0,
   },
 
   label: {
@@ -699,6 +937,11 @@ const styles = {
     padding: "9px 13px",
     cursor: "pointer",
     fontSize: "11px",
+  },
+
+  disabledButton: {
+    opacity: 0.6,
+    cursor: "not-allowed",
   },
 
   saveContainer: {

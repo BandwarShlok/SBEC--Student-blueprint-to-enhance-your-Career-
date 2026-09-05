@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-
 import {
   FaUser,
   FaGraduationCap,
@@ -9,20 +8,21 @@ import {
   FaEdit,
   FaUndo,
   FaSpinner,
+  FaCheckCircle,
 } from "react-icons/fa";
-
 import toast from "react-hot-toast";
 
 import API_URL from "../../config/api";
-
 import { useAuth } from "../../context/useAuth";
 
 /* =========================================================
-   GET TOKEN
+   TOKEN
 ========================================================= */
 
 const getToken = (token) => {
-  return token || localStorage.getItem("sbec_token");
+  return (
+    token || localStorage.getItem("sbec_token") || localStorage.getItem("token")
+  );
 };
 
 /* =========================================================
@@ -56,58 +56,67 @@ const availableSubjects = [
 ];
 
 /* =========================================================
+   NORMALIZE PROFILE
+========================================================= */
+
+const normalizeProfile = (profile = {}) => {
+  return {
+    name: profile.name || "",
+    email: profile.email || "",
+    phone: profile.phone || "",
+    college: profile.college || "",
+    course: profile.course || "BSc Computer Science",
+    year: profile.year || "",
+    semester: profile.semester || "",
+    rollNumber: profile.rollNumber || "",
+    studyHours: profile.studyHours || "2",
+    difficulty: profile.difficulty || "Medium",
+    priority: profile.priority || "Exam Preparation",
+    subjects: Array.isArray(profile.subjects) ? profile.subjects : [],
+  };
+};
+
+/* =========================================================
    PROFILE COMPONENT
 ========================================================= */
 
 function Profile() {
-  /* =======================================================
-     AUTH
-  ======================================================= */
-
   const { token, logout } = useAuth();
 
-  /* =======================================================
-     STATE
-  ======================================================= */
-
-  const [isEditing, setIsEditing] = useState(false);
-
-  const [loading, setLoading] = useState(true);
-
-  const [saving, setSaving] = useState(false);
-
   const [profile, setProfile] = useState(defaultProfile);
-
   const [originalProfile, setOriginalProfile] = useState(defaultProfile);
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   /* =======================================================
      LOAD PROFILE
-     
-     GET /api/profile
   ======================================================= */
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadProfile = async () => {
       const authToken = getToken(token);
 
       if (!authToken) {
-        setLoading(false);
-
-        toast.error("Please login to view your profile.");
-
+        if (!cancelled) {
+          setLoading(false);
+          toast.error("Please login to view your profile.");
+        }
         return;
       }
 
       try {
-        setLoading(true);
+        if (!cancelled) {
+          setLoading(true);
+        }
 
         const response = await fetch(`${API_URL}/api/profile`, {
           method: "GET",
-
           headers: {
             Authorization: `Bearer ${authToken}`,
-
             "Content-Type": "application/json",
           },
         });
@@ -120,91 +129,55 @@ function Profile() {
           data = {};
         }
 
-        /* ===============================================
-           SESSION EXPIRED
-        =============================================== */
-
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem("sbec_token");
-
           localStorage.removeItem("sbec_user");
+          localStorage.removeItem("token");
 
           if (logout) {
             logout();
           }
 
-          toast.error("Session expired. Please login again.");
+          if (!cancelled) {
+            toast.error("Session expired. Please login again.");
+            setLoading(false);
+          }
 
           return;
         }
-
-        /* ===============================================
-           API ERROR
-        =============================================== */
 
         if (!response.ok) {
           throw new Error(data.message || "Failed to load profile.");
         }
 
-        /* ===============================================
-           PROFILE DATA
-        =============================================== */
+        const loadedProfile = normalizeProfile(data.profile);
 
-        const backendProfile = data.profile || {};
-
-        const loadedProfile = {
-          name: backendProfile.name || "",
-
-          email: backendProfile.email || "",
-
-          phone: backendProfile.phone || "",
-
-          college: backendProfile.college || "",
-
-          course: backendProfile.course || "BSc Computer Science",
-
-          year: backendProfile.year || "",
-
-          semester: backendProfile.semester || "",
-
-          rollNumber: backendProfile.rollNumber || "",
-
-          studyHours: backendProfile.studyHours || "2",
-
-          difficulty: backendProfile.difficulty || "Medium",
-
-          priority: backendProfile.priority || "Exam Preparation",
-
-          subjects: Array.isArray(backendProfile.subjects)
-            ? backendProfile.subjects
-            : [],
-        };
-
-        setProfile(loadedProfile);
-
-        setOriginalProfile(loadedProfile);
+        if (!cancelled) {
+          setProfile(loadedProfile);
+          setOriginalProfile(loadedProfile);
+        }
       } catch (error) {
         console.error("LOAD PROFILE ERROR:", error);
 
-        toast.error(error.message || "Unable to load profile.");
+        if (!cancelled) {
+          toast.error(error.message || "Unable to load profile.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    /*
-      Timeout prevents the request from
-      being triggered synchronously during
-      the initial render.
-    */
+    loadProfile();
 
-    const timer = setTimeout(loadProfile, 0);
-
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+    };
   }, [token, logout]);
 
   /* =======================================================
-     HANDLE INPUT CHANGE
+     HANDLE INPUT
   ======================================================= */
 
   const handleChange = (field, value) => {
@@ -215,95 +188,85 @@ function Profile() {
   };
 
   /* =======================================================
-     TOGGLE SUBJECT
+     SUBJECT SELECTION
   ======================================================= */
 
   const toggleSubject = (subject) => {
+    if (!isEditing || saving) {
+      return;
+    }
+
     setProfile((previous) => {
-      const exists = previous.subjects.includes(subject);
+      const subjects = Array.isArray(previous.subjects)
+        ? previous.subjects
+        : [];
+
+      const exists = subjects.includes(subject);
 
       return {
         ...previous,
-
         subjects: exists
-          ? previous.subjects.filter((item) => item !== subject)
-          : [...previous.subjects, subject],
+          ? subjects.filter((item) => item !== subject)
+          : [...subjects, subject],
       };
     });
   };
 
   /* =======================================================
      SAVE PROFILE
-     
-     PUT /api/profile
   ======================================================= */
 
   const handleSave = async () => {
-    /* =====================================================
-       VALIDATION
-    ===================================================== */
-
-    if (!profile.name || !profile.name.trim()) {
-      toast.error("Name is required.");
-
-      return;
-    }
-
-    if (!profile.email || !profile.email.trim()) {
-      toast.error("Email is required.");
-
-      return;
-    }
-
-    if (!profile.subjects || profile.subjects.length === 0) {
-      toast.error("Select at least one subject.");
-
-      return;
-    }
-
     const authToken = getToken(token);
 
     if (!authToken) {
       toast.error("Session expired. Please login again.");
+      return;
+    }
 
+    /* -----------------------------------------------------
+       VALIDATION
+    ----------------------------------------------------- */
+
+    if (!profile.name.trim()) {
+      toast.error("Name is required.");
+      return;
+    }
+
+    if (!profile.email.trim()) {
+      toast.error("Email is required.");
+      return;
+    }
+
+    if (profile.subjects.length === 0) {
+      toast.error("Select at least one priority subject.");
       return;
     }
 
     try {
       setSaving(true);
 
+      const payload = {
+        name: profile.name.trim(),
+        phone: profile.phone.trim(),
+        college: profile.college.trim(),
+        course: profile.course.trim(),
+        year: profile.year.trim(),
+        semester: profile.semester.trim(),
+        rollNumber: profile.rollNumber.trim(),
+        studyHours: profile.studyHours,
+        difficulty: profile.difficulty,
+        priority: profile.priority,
+        subjects: profile.subjects,
+      };
+
       const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
-
         headers: {
           Authorization: `Bearer ${authToken}`,
-
           "Content-Type": "application/json",
         },
-
-        body: JSON.stringify({
-          name: profile.name.trim(),
-
-          phone: profile.phone || "",
-
-          college: profile.college || "",
-
-          course: profile.course || "",
-
-          year: profile.year || "",
-
-          semester: profile.semester || "",
-
-          rollNumber: profile.rollNumber || "",
-
-          studyHours: profile.studyHours || "2",
-
-          difficulty: profile.difficulty || "Medium",
-
-          priority: profile.priority || "Exam Preparation",
-
-          subjects: profile.subjects,
-        }),
+        body: JSON.stringify(payload),
       });
 
       let data = {};
@@ -314,75 +277,36 @@ function Profile() {
         data = {};
       }
 
-      /* ===============================================
+      /* -----------------------------------------------------
          SESSION EXPIRED
-      =============================================== */
+      ----------------------------------------------------- */
 
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem("sbec_token");
-
         localStorage.removeItem("sbec_user");
+        localStorage.removeItem("token");
 
         if (logout) {
           logout();
         }
 
         toast.error("Session expired. Please login again.");
-
         return;
       }
-
-      /* ===============================================
-         API ERROR
-      =============================================== */
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to update profile.");
       }
 
-      /* ===============================================
-         UPDATED PROFILE
-      =============================================== */
+      const updatedProfile = normalizeProfile(data.profile || payload);
 
-      const updatedProfile = data.profile || profile;
+      setProfile(updatedProfile);
+      setOriginalProfile(updatedProfile);
+      setIsEditing(false);
 
-      const cleanProfile = {
-        name: updatedProfile.name || "",
-
-        email: updatedProfile.email || profile.email || "",
-
-        phone: updatedProfile.phone || "",
-
-        college: updatedProfile.college || "",
-
-        course: updatedProfile.course || "BSc Computer Science",
-
-        year: updatedProfile.year || "",
-
-        semester: updatedProfile.semester || "",
-
-        rollNumber: updatedProfile.rollNumber || "",
-
-        studyHours: updatedProfile.studyHours || "2",
-
-        difficulty: updatedProfile.difficulty || "Medium",
-
-        priority: updatedProfile.priority || "Exam Preparation",
-
-        subjects: Array.isArray(updatedProfile.subjects)
-          ? updatedProfile.subjects
-          : [],
-      };
-
-      setProfile(cleanProfile);
-
-      setOriginalProfile(cleanProfile);
-
-      /* ===============================================
-         UPDATE LOCAL USER DATA
-         
-         This keeps the rest of SBEC synchronized.
-      =============================================== */
+      /* -----------------------------------------------------
+         KEEP LOCAL SESSION DATA UPDATED
+      ----------------------------------------------------- */
 
       try {
         const existingUser = JSON.parse(
@@ -393,14 +317,12 @@ function Profile() {
           "sbec_user",
           JSON.stringify({
             ...existingUser,
-            ...cleanProfile,
+            ...updatedProfile,
           }),
         );
-      } catch (storageError) {
-        console.warn("LOCAL USER UPDATE WARNING:", storageError);
+      } catch (error) {
+        console.warn("LOCAL USER UPDATE WARNING:", error);
       }
-
-      setIsEditing(false);
 
       toast.success(data.message || "Profile updated successfully.");
     } catch (error) {
@@ -413,13 +335,12 @@ function Profile() {
   };
 
   /* =======================================================
-     CANCEL EDITING
+     CANCEL
   ======================================================= */
 
   const handleCancel = () => {
     setProfile({
       ...originalProfile,
-
       subjects: [...originalProfile.subjects],
     });
 
@@ -457,7 +378,7 @@ function Profile() {
   const completion = getCompletion();
 
   /* =======================================================
-     LOADING SCREEN
+     LOADING
   ======================================================= */
 
   if (loading) {
@@ -474,22 +395,16 @@ function Profile() {
         <style>
           {`
             .profile-spinner {
-              animation:
-                profileSpin
-                0.8s
-                linear
-                infinite;
+              animation: profileSpin 0.8s linear infinite;
             }
 
             @keyframes profileSpin {
               from {
-                transform:
-                  rotate(0deg);
+                transform: rotate(0deg);
               }
 
               to {
-                transform:
-                  rotate(360deg);
+                transform: rotate(360deg);
               }
             }
           `}
@@ -510,9 +425,11 @@ function Profile() {
 
       <div className="profile-header" style={styles.header}>
         <div>
-          <h1 style={styles.title}>My Profile</h1>
+          <h1 className="profile-title" style={styles.title}>
+            My Profile
+          </h1>
 
-          <p style={styles.subtitle}>
+          <p className="profile-subtitle" style={styles.subtitle}>
             Manage your academic information and study preferences.
           </p>
         </div>
@@ -544,9 +461,7 @@ function Profile() {
               disabled={saving}
               style={{
                 ...styles.saveButton,
-
                 opacity: saving ? 0.6 : 1,
-
                 cursor: saving ? "not-allowed" : "pointer",
               }}
             >
@@ -563,19 +478,23 @@ function Profile() {
       =================================================== */}
 
       <div className="profile-overview" style={styles.profileOverview}>
-        <div style={styles.avatar}>
+        <div className="profile-avatar" style={styles.avatar}>
           <FaUser />
         </div>
 
-        <div style={styles.profileInfo}>
+        <div className="profile-info" style={styles.profileInfo}>
           <h2 style={styles.profileName}>{profile.name || "Student"}</h2>
 
           <p style={styles.profileEmail}>
             {profile.email || "Email not available"}
           </p>
 
-          <span style={styles.profileAcademic}>
+          <span className="profile-academic" style={styles.profileAcademic}>
             {profile.course || "BSc Computer Science"}
+
+            {" • "}
+
+            {profile.year || "Year not set"}
 
             {" • "}
 
@@ -594,7 +513,6 @@ function Profile() {
             <div
               style={{
                 ...styles.completionFill,
-
                 width: `${completion}%`,
               }}
             />
@@ -606,20 +524,12 @@ function Profile() {
           PERSONAL INFORMATION
       =================================================== */}
 
-      <div style={styles.card}>
-        <div style={styles.sectionHeader}>
-          <div style={styles.sectionIcon}>
-            <FaUser />
-          </div>
-
-          <div>
-            <h2 style={styles.sectionTitle}>Personal Information</h2>
-
-            <p style={styles.sectionDescription}>
-              Your basic account information.
-            </p>
-          </div>
-        </div>
+      <div className="profile-card" style={styles.card}>
+        <SectionHeader
+          icon={<FaUser />}
+          title="Personal Information"
+          description="Your basic account information."
+        />
 
         <div className="profile-form-grid" style={styles.formGrid}>
           <FormField
@@ -659,20 +569,12 @@ function Profile() {
           ACADEMIC INFORMATION
       =================================================== */}
 
-      <div style={styles.card}>
-        <div style={styles.sectionHeader}>
-          <div style={styles.sectionIcon}>
-            <FaGraduationCap />
-          </div>
-
-          <div>
-            <h2 style={styles.sectionTitle}>Academic Information</h2>
-
-            <p style={styles.sectionDescription}>
-              Information used to personalize your study experience.
-            </p>
-          </div>
-        </div>
+      <div className="profile-card" style={styles.card}>
+        <SectionHeader
+          icon={<FaGraduationCap />}
+          title="Academic Information"
+          description="Information used to personalize your study experience."
+        />
 
         <div className="profile-form-grid" style={styles.formGrid}>
           <FormField
@@ -695,10 +597,8 @@ function Profile() {
             value={profile.year}
             editing={isEditing}
             onChange={(value) => handleChange("year", value)}
-            placeholder="e.g. SY / TY"
+            placeholder="e.g. FY / SY / TY"
           />
-
-          {/* SEMESTER */}
 
           <div>
             <label style={styles.label}>Semester</label>
@@ -736,20 +636,12 @@ function Profile() {
           STUDY PREFERENCES
       =================================================== */}
 
-      <div style={styles.card}>
-        <div style={styles.sectionHeader}>
-          <div style={styles.sectionIcon}>
-            <FaBook />
-          </div>
-
-          <div>
-            <h2 style={styles.sectionTitle}>Study Preferences</h2>
-
-            <p style={styles.sectionDescription}>
-              Customize SBEC according to your priorities.
-            </p>
-          </div>
-        </div>
+      <div className="profile-card" style={styles.card}>
+        <SectionHeader
+          icon={<FaBook />}
+          title="Study Preferences"
+          description="Customize SBEC according to your priorities."
+        />
 
         <div className="profile-preference-grid" style={styles.preferenceGrid}>
           {/* STUDY HOURS */}
@@ -835,7 +727,7 @@ function Profile() {
         </div>
 
         {/* =================================================
-            SUBJECTS
+            PRIORITY SUBJECTS
         ================================================= */}
 
         <div style={styles.subjectSection}>
@@ -867,11 +759,19 @@ function Profile() {
                     opacity: isEditing ? 1 : 0.8,
                   }}
                 >
+                  {selected && <FaCheckCircle />}
+
                   {subject}
                 </button>
               );
             })}
           </div>
+
+          {isEditing && profile.subjects.length === 0 && (
+            <p style={styles.warningText}>
+              Select at least one priority subject.
+            </p>
+          )}
         </div>
       </div>
 
@@ -897,9 +797,7 @@ function Profile() {
             disabled={saving}
             style={{
               ...styles.saveButton,
-
               opacity: saving ? 0.6 : 1,
-
               cursor: saving ? "not-allowed" : "pointer",
             }}
           >
@@ -911,49 +809,34 @@ function Profile() {
       )}
 
       {/* ===================================================
-          MOBILE RESPONSIVE CSS
+          RESPONSIVE CSS
       =================================================== */}
 
       <style>
         {`
-
           * {
             box-sizing: border-box;
           }
 
-
           .profile-spinner {
-            animation:
-              profileSpin
-              0.8s
-              linear
-              infinite;
+            animation: profileSpin 0.8s linear infinite;
           }
-
 
           @keyframes profileSpin {
             from {
-              transform:
-                rotate(0deg);
+              transform: rotate(0deg);
             }
 
             to {
-              transform:
-                rotate(360deg);
+              transform: rotate(360deg);
             }
           }
 
-
           .profile-page input:focus,
           .profile-page select:focus {
-            border-color:
-              #8B5CF6 !important;
-
-            box-shadow:
-              0 0 0 2px
-              rgba(139, 92, 246, 0.12);
+            border-color: #8B5CF6 !important;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.12);
           }
-
 
           .profile-page button {
             transition:
@@ -961,265 +844,170 @@ function Profile() {
               transform 0.15s ease;
           }
 
-
           .profile-page button:not(:disabled):hover {
-            transform:
-              translateY(-1px);
+            transform: translateY(-1px);
           }
 
-
           @media (max-width: 900px) {
-
             .profile-overview {
               flex-wrap: wrap !important;
             }
 
-
             .completion-box {
-              width:
-                100% !important;
-
-              margin-top:
-                8px;
+              width: 100% !important;
+              margin-top: 8px;
             }
-
 
             .profile-preference-grid {
-              grid-template-columns:
-                repeat(2, 1fr) !important;
+              grid-template-columns: repeat(2, 1fr) !important;
             }
-
           }
-
 
           @media (max-width: 700px) {
-
             .profile-header {
-              flex-direction:
-                column !important;
-
-              align-items:
-                stretch !important;
-
-              gap:
-                15px !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 15px !important;
             }
-
 
             .profile-header > button {
-              width:
-                100% !important;
+              width: 100% !important;
             }
-
 
             .profile-header-actions {
-              display:
-                grid !important;
-
-              grid-template-columns:
-                1fr 1fr !important;
-
-              width:
-                100% !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              width: 100% !important;
             }
-
 
             .profile-header-actions button {
-              width:
-                100% !important;
+              width: 100% !important;
             }
-
 
             .profile-form-grid {
-              grid-template-columns:
-                1fr !important;
+              grid-template-columns: 1fr !important;
             }
-
 
             .profile-preference-grid {
-              grid-template-columns:
-                1fr !important;
+              grid-template-columns: 1fr !important;
             }
-
 
             .profile-overview {
-              align-items:
-                flex-start !important;
-
-              padding:
-                18px !important;
-
-              gap:
-                12px !important;
+              align-items: flex-start !important;
+              padding: 18px !important;
+              gap: 12px !important;
             }
-
 
             .profile-info {
-              min-width:
-                0;
+              min-width: 0;
             }
-
 
             .profile-info h2 {
-              font-size:
-                18px !important;
+              font-size: 18px !important;
             }
-
 
             .profile-info p {
-              overflow:
-                hidden;
-
-              text-overflow:
-                ellipsis;
-
-              white-space:
-                nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
             }
-
 
             .profile-academic {
-              font-size:
-                11px !important;
+              font-size: 11px !important;
             }
-
-
-            .completion-box {
-              padding-top:
-                8px;
-            }
-
 
             .profile-card {
-              padding:
-                18px !important;
+              padding: 18px !important;
             }
-
 
             .profile-bottom-actions {
-              display:
-                grid !important;
-
-              grid-template-columns:
-                1fr 1fr !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
             }
-
 
             .profile-bottom-actions button {
-              width:
-                100% !important;
+              width: 100% !important;
             }
-
           }
-
 
           @media (max-width: 480px) {
-
             .profile-page {
-              width:
-                100% !important;
+              width: 100% !important;
             }
-
 
             .profile-title {
-              font-size:
-                25px !important;
+              font-size: 25px !important;
             }
-
 
             .profile-subtitle {
-              font-size:
-                12px !important;
+              font-size: 12px !important;
             }
-
 
             .profile-overview {
-              display:
-                grid !important;
-
-              grid-template-columns:
-                auto 1fr !important;
+              display: grid !important;
+              grid-template-columns: auto 1fr !important;
             }
-
 
             .completion-box {
-              grid-column:
-                1 / -1 !important;
-
-              width:
-                100% !important;
+              grid-column: 1 / -1 !important;
+              width: 100% !important;
             }
-
 
             .profile-avatar {
-              width:
-                52px !important;
-
-              height:
-                52px !important;
-
-              min-width:
-                52px !important;
-
-              border-radius:
-                14px !important;
-
-              font-size:
-                20px !important;
+              width: 52px !important;
+              height: 52px !important;
+              min-width: 52px !important;
+              border-radius: 14px !important;
+              font-size: 20px !important;
             }
-
 
             .profile-card {
-              padding:
-                16px !important;
-
-              border-radius:
-                13px !important;
+              padding: 16px !important;
+              border-radius: 13px !important;
             }
-
-
-            .profile-section-header {
-              margin-bottom:
-                17px !important;
-            }
-
-
-            .profile-section-icon {
-              width:
-                36px !important;
-
-              height:
-                36px !important;
-
-              min-width:
-                36px !important;
-            }
-
 
             .profile-section-title {
-              font-size:
-                15px !important;
+              font-size: 15px !important;
             }
-
 
             .profile-section-description {
-              font-size:
-                11px !important;
+              font-size: 11px !important;
             }
-
 
             .profile-bottom-actions {
-              grid-template-columns:
-                1fr !important;
-
-              gap:
-                8px !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
             }
-
           }
-
         `}
       </style>
+    </div>
+  );
+}
+
+/* =========================================================
+   SECTION HEADER
+========================================================= */
+
+function SectionHeader({ icon, title, description }) {
+  return (
+    <div style={styles.sectionHeader}>
+      <div className="profile-section-icon" style={styles.sectionIcon}>
+        {icon}
+      </div>
+
+      <div>
+        <h2 className="profile-section-title" style={styles.sectionTitle}>
+          {title}
+        </h2>
+
+        <p
+          className="profile-section-description"
+          style={styles.sectionDescription}
+        >
+          {description}
+        </p>
+      </div>
     </div>
   );
 }
@@ -1266,10 +1054,6 @@ const styles = {
     margin: "0 auto",
     boxSizing: "border-box",
   },
-
-  /* =======================================================
-     HEADER
-  ======================================================= */
 
   header: {
     display: "flex",
@@ -1337,10 +1121,6 @@ const styles = {
     padding: "11px 15px",
     cursor: "pointer",
   },
-
-  /* =======================================================
-     PROFILE OVERVIEW
-  ======================================================= */
 
   profileOverview: {
     display: "flex",
@@ -1414,10 +1194,6 @@ const styles = {
     transition: "width 0.25s ease",
   },
 
-  /* =======================================================
-     CARDS
-  ======================================================= */
-
   card: {
     background: "#0F172A",
     border: "1px solid #1E293B",
@@ -1456,10 +1232,6 @@ const styles = {
     fontSize: "11px",
     margin: "4px 0 0",
   },
-
-  /* =======================================================
-     FORMS
-  ======================================================= */
 
   formGrid: {
     display: "grid",
@@ -1508,10 +1280,6 @@ const styles = {
     gap: "7px",
   },
 
-  /* =======================================================
-     SUBJECTS
-  ======================================================= */
-
   subjectSection: {
     marginTop: "22px",
   },
@@ -1523,14 +1291,19 @@ const styles = {
   },
 
   subjectChip: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
     borderRadius: "8px",
     padding: "8px 11px",
     fontSize: "11px",
   },
 
-  /* =======================================================
-     BOTTOM ACTIONS
-  ======================================================= */
+  warningText: {
+    color: "#F59E0B",
+    fontSize: "11px",
+    marginTop: "10px",
+  },
 
   bottomActions: {
     display: "flex",
@@ -1538,10 +1311,6 @@ const styles = {
     gap: "8px",
     marginBottom: "25px",
   },
-
-  /* =======================================================
-     LOADING
-  ======================================================= */
 
   loadingContainer: {
     minHeight: "400px",

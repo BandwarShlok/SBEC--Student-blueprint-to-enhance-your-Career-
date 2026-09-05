@@ -28,6 +28,7 @@ function AdminSubjects() {
     year: "",
     semester: "",
     description: "",
+    units: [],
   });
 
   const getToken = () => {
@@ -110,6 +111,86 @@ function AdminSubjects() {
     }));
   };
 
+  // =========================
+  // UNITS & TOPICS
+  // =========================
+
+  const addUnit = () => {
+    setFormData((previous) => ({
+      ...previous,
+      units: [
+        ...(Array.isArray(previous.units) ? previous.units : []),
+        {
+          name: `Unit ${(previous.units?.length || 0) + 1}`,
+          topics: [],
+        },
+      ],
+    }));
+  };
+
+  const removeUnit = (unitIndex) => {
+    setFormData((previous) => ({
+      ...previous,
+      units: previous.units.filter((_, index) => index !== unitIndex),
+    }));
+  };
+
+  const updateUnitName = (unitIndex, value) => {
+    setFormData((previous) => ({
+      ...previous,
+      units: previous.units.map((unit, index) =>
+        index === unitIndex ? { ...unit, name: value } : unit,
+      ),
+    }));
+  };
+
+  const addTopic = (unitIndex) => {
+    setFormData((previous) => ({
+      ...previous,
+      units: previous.units.map((unit, index) =>
+        index === unitIndex
+          ? {
+              ...unit,
+              topics: [
+                ...(Array.isArray(unit.topics) ? unit.topics : []),
+                { name: "" },
+              ],
+            }
+          : unit,
+      ),
+    }));
+  };
+
+  const removeTopic = (unitIndex, topicIndex) => {
+    setFormData((previous) => ({
+      ...previous,
+      units: previous.units.map((unit, index) =>
+        index === unitIndex
+          ? {
+              ...unit,
+              topics: unit.topics.filter((_, tIndex) => tIndex !== topicIndex),
+            }
+          : unit,
+      ),
+    }));
+  };
+
+  const updateTopic = (unitIndex, topicIndex, value) => {
+    setFormData((previous) => ({
+      ...previous,
+      units: previous.units.map((unit, index) =>
+        index === unitIndex
+          ? {
+              ...unit,
+              topics: unit.topics.map((topic, tIndex) =>
+                tIndex === topicIndex ? { ...topic, name: value } : topic,
+              ),
+            }
+          : unit,
+      ),
+    }));
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -118,6 +199,7 @@ function AdminSubjects() {
       year: "",
       semester: "",
       description: "",
+      units: [],
     });
 
     setEditingId(null);
@@ -135,6 +217,7 @@ function AdminSubjects() {
       year: "",
       semester: "",
       description: "",
+      units: [],
     });
 
     setError("");
@@ -161,6 +244,14 @@ function AdminSubjects() {
     const year = formData.year.trim();
     const semester = formData.semester.trim();
     const description = formData.description.trim();
+    const units = (Array.isArray(formData.units) ? formData.units : [])
+      .map((unit) => ({
+        name: String(unit.name || "").trim(),
+        topics: (Array.isArray(unit.topics) ? unit.topics : [])
+          .map((topic) => ({ name: String(topic.name || "").trim() }))
+          .filter((topic) => topic.name),
+      }))
+      .filter((unit) => unit.name);
 
     if (!name) {
       setError("Please enter subject name.");
@@ -210,6 +301,7 @@ function AdminSubjects() {
           year,
           semester,
           description,
+          units,
         }),
       });
 
@@ -243,6 +335,18 @@ function AdminSubjects() {
       year: subject.year || "",
       semester: subject.semester || "",
       description: subject.description || "",
+      units: Array.isArray(subject.units)
+        ? subject.units.map((unit) => ({
+            _id: unit._id,
+            name: unit.name || "",
+            topics: Array.isArray(unit.topics)
+              ? unit.topics.map((topic) => ({
+                  _id: topic._id,
+                  name: topic.name || "",
+                }))
+              : [],
+          }))
+        : [],
     });
 
     setError("");
@@ -539,6 +643,128 @@ function AdminSubjects() {
                 onChange={handleChange}
                 style={styles.input}
               />
+            </div>
+
+            {/* UNITS & TOPICS */}
+            <div className="subjects-units-section" style={styles.unitsSection}>
+              <div className="subjects-units-header" style={styles.unitsHeader}>
+                <div>
+                  <h3 style={styles.unitsTitle}>Units & Topics</h3>
+                  <p style={styles.unitsSubtitle}>
+                    Create units and add topics inside each unit.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addUnit}
+                  className="subjects-add-unit-button"
+                  style={styles.addUnitButton}
+                  disabled={saving}
+                >
+                  <FaPlus />
+                  Add Unit
+                </button>
+              </div>
+
+              {formData.units.length === 0 ? (
+                <div style={styles.emptyUnits}>
+                  No units added yet. Click <strong>+ Add Unit</strong> to
+                  create the first unit.
+                </div>
+              ) : (
+                <div style={styles.unitsList}>
+                  {formData.units.map((unit, unitIndex) => (
+                    <div
+                      key={unit._id || `unit-${unitIndex}`}
+                      style={styles.unitCard}
+                    >
+                      <div style={styles.unitTopRow}>
+                        <div style={styles.unitNumber}>
+                          Unit {unitIndex + 1}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeUnit(unitIndex)}
+                          style={styles.removeUnitButton}
+                          disabled={saving}
+                          title="Remove unit"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={unit.name || ""}
+                        onChange={(e) =>
+                          updateUnitName(unitIndex, e.target.value)
+                        }
+                        placeholder={`Unit ${unitIndex + 1}: e.g. Introduction to Networks`}
+                        style={styles.input}
+                      />
+
+                      <div style={styles.topicsHeader}>
+                        <span style={styles.topicsTitle}>Topics</span>
+                        <button
+                          type="button"
+                          onClick={() => addTopic(unitIndex)}
+                          style={styles.addTopicButton}
+                          disabled={saving}
+                        >
+                          <FaPlus />
+                          Add Topic
+                        </button>
+                      </div>
+
+                      {unit.topics?.length > 0 ? (
+                        <div style={styles.topicsList}>
+                          {unit.topics.map((topic, topicIndex) => (
+                            <div
+                              key={
+                                topic._id || `topic-${unitIndex}-${topicIndex}`
+                              }
+                              style={styles.topicRow}
+                            >
+                              <span style={styles.topicNumber}>
+                                {topicIndex + 1}
+                              </span>
+                              <input
+                                type="text"
+                                value={topic.name || ""}
+                                onChange={(e) =>
+                                  updateTopic(
+                                    unitIndex,
+                                    topicIndex,
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder={`Topic ${topicIndex + 1}`}
+                                style={styles.topicInput}
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeTopic(unitIndex, topicIndex)
+                                }
+                                style={styles.removeTopicButton}
+                                disabled={saving}
+                                title="Remove topic"
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={styles.noTopics}>
+                          No topics added to this unit.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="subjects-form-actions" style={styles.formActions}>
@@ -892,6 +1118,19 @@ function AdminSubjects() {
             .subjects-form-actions button {
               width: 100% !important;
             }
+
+            .subjects-units-section {
+              grid-column: auto !important;
+            }
+
+            .subjects-units-header {
+              align-items: stretch !important;
+              flex-direction: column !important;
+            }
+
+            .subjects-add-unit-button {
+              width: 100% !important;
+            }
           }
 
           @media (max-width: 480px) {
@@ -1106,6 +1345,185 @@ const styles = {
     padding: "11px",
     outline: "none",
     fontSize: "12px",
+  },
+
+  unitsSection: {
+    gridColumn: "1 / -1",
+    background: "#0B1220",
+    border: "1px solid #1E293B",
+    borderRadius: "14px",
+    padding: "18px",
+    marginTop: "4px",
+  },
+
+  unitsHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "16px",
+  },
+
+  unitsTitle: {
+    color: "#FFFFFF",
+    margin: 0,
+    fontSize: "16px",
+    fontWeight: "700",
+  },
+
+  unitsSubtitle: {
+    color: "#64748B",
+    margin: "5px 0 0",
+    fontSize: "12px",
+  },
+
+  addUnitButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "7px",
+    background: "#8B5CF6",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "8px",
+    padding: "9px 13px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "600",
+    whiteSpace: "nowrap",
+  },
+
+  emptyUnits: {
+    border: "1px dashed #334155",
+    borderRadius: "10px",
+    padding: "18px",
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: "12px",
+  },
+
+  unitsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+
+  unitCard: {
+    background: "#111827",
+    border: "1px solid #243044",
+    borderRadius: "12px",
+    padding: "14px",
+  },
+
+  unitTopRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "10px",
+  },
+
+  unitNumber: {
+    color: "#A78BFA",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+
+  removeUnitButton: {
+    width: "32px",
+    height: "32px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid #7F1D1D",
+    background: "#450A0A",
+    color: "#FCA5A5",
+    borderRadius: "7px",
+    cursor: "pointer",
+  },
+
+  topicsHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "13px",
+    marginBottom: "9px",
+  },
+
+  topicsTitle: {
+    color: "#CBD5E1",
+    fontSize: "12px",
+    fontWeight: "700",
+  },
+
+  addTopicButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    background: "transparent",
+    border: "1px solid #334155",
+    color: "#A78BFA",
+    borderRadius: "7px",
+    padding: "6px 9px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  topicsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+
+  topicRow: {
+    display: "grid",
+    gridTemplateColumns: "28px 1fr 32px",
+    alignItems: "center",
+    gap: "8px",
+  },
+
+  topicNumber: {
+    width: "28px",
+    height: "28px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#1E293B",
+    color: "#94A3B8",
+    borderRadius: "6px",
+    fontSize: "11px",
+    fontWeight: "700",
+  },
+
+  topicInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    background: "#0F172A",
+    border: "1px solid #263449",
+    borderRadius: "8px",
+    color: "#FFFFFF",
+    padding: "9px 11px",
+    outline: "none",
+    fontSize: "12px",
+  },
+
+  removeTopicButton: {
+    width: "32px",
+    height: "32px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "transparent",
+    border: "1px solid #334155",
+    color: "#94A3B8",
+    borderRadius: "7px",
+    cursor: "pointer",
+  },
+
+  noTopics: {
+    color: "#64748B",
+    fontSize: "11px",
+    margin: "8px 0 0",
   },
 
   formActions: {

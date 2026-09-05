@@ -18,9 +18,7 @@ import API_URL from "../../../config/api";
 //   http://HOST:5000/api
 const API_ROOT = String(API_URL || "").replace(/\/+$/, "");
 
-const API_BASE_URL = API_ROOT.endsWith("/api")
-  ? API_ROOT
-  : `${API_ROOT}/api`;
+const API_BASE_URL = API_ROOT.endsWith("/api") ? API_ROOT : `${API_ROOT}/api`;
 
 const QUIZ_API = `${API_BASE_URL}/admin/quiz`;
 
@@ -62,6 +60,8 @@ const EMPTY_FORM = {
 
 function AdminQuiz() {
   const [questions, setQuestions] = useState([]);
+
+  const [subjects, setSubjects] = useState([]);
 
   const [search, setSearch] = useState("");
 
@@ -117,6 +117,42 @@ function AdminQuiz() {
 
   /*
   ====================================================
+  FETCH SUBJECTS
+  ====================================================
+  */
+
+  const fetchSubjects = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects`, {
+        method: "GET",
+        headers: getAdminHeaders(),
+      });
+
+      const data = await readApiResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load subjects.");
+      }
+
+      setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+    } catch (err) {
+      console.error("FETCH SUBJECTS ERROR:", err);
+      setError(err.message || "Unable to load subjects.");
+    }
+  };
+
+  const getSelectedSubject = () => {
+    return subjects.find((subject) => subject.name === formData.subject);
+  };
+
+  const selectedSubject = getSelectedSubject();
+
+  const selectedUnits = Array.isArray(selectedSubject?.units)
+    ? selectedSubject.units
+    : [];
+
+  /*
+  ====================================================
   INITIAL LOAD
 
   setTimeout prevents the React hooks lint error:
@@ -127,6 +163,7 @@ function AdminQuiz() {
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchQuestions();
+      fetchSubjects();
     }, 0);
 
     return () => clearTimeout(timer);
@@ -144,6 +181,7 @@ function AdminQuiz() {
     setFormData((previous) => ({
       ...previous,
       [name]: value,
+      ...(name === "subject" ? { unit: "" } : {}),
     }));
   };
 
@@ -1338,15 +1376,11 @@ function AdminQuiz() {
               >
                 <option value="">Select Subject</option>
 
-                <option value="Artificial Intelligence">
-                  Artificial Intelligence
-                </option>
-
-                <option value="Computer Networks">Computer Networks</option>
-
-                <option value="Software Engineering">
-                  Software Engineering
-                </option>
+                {subjects.map((subject) => (
+                  <option key={subject._id} value={subject.name}>
+                    {subject.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1360,18 +1394,29 @@ function AdminQuiz() {
                 name="unit"
                 value={formData.unit}
                 onChange={handleChange}
+                disabled={!formData.subject || selectedUnits.length === 0}
               >
-                <option value="">Select Unit</option>
+                <option value="">
+                  {!formData.subject
+                    ? "Select Subject First"
+                    : selectedUnits.length === 0
+                      ? "No Units Available"
+                      : "Select Unit"}
+                </option>
 
-                <option value="Unit 1">Unit 1</option>
+                {selectedUnits.map((unit) => (
+                  <option key={unit._id || unit.name} value={unit.name}>
+                    {unit.name}
+                  </option>
+                ))}
 
-                <option value="Unit 2">Unit 2</option>
-
-                <option value="Unit 3">Unit 3</option>
-
-                <option value="Unit 4">Unit 4</option>
-
-                <option value="Unit 5">Unit 5</option>
+                {/* Keep an existing unit selectable while editing if it is
+                    not present in the current subject configuration. */}
+                {editingId &&
+                  formData.unit &&
+                  !selectedUnits.some(
+                    (unit) => unit.name === formData.unit,
+                  ) && <option value={formData.unit}>{formData.unit}</option>}
               </select>
             </div>
 

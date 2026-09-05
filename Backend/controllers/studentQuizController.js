@@ -1,14 +1,18 @@
 const QuizQuestion = require("../models/QuizQuestion");
+const QuizResult = require("../models/QuizResult");
 
 // ============================================================
 // GET QUIZ SUBJECTS
 // GET /api/quiz/subjects
 // ============================================================
+
 const getQuizSubjects = async (req, res) => {
   try {
     const subjects = await QuizQuestion.distinct("subject");
 
     const sortedSubjects = subjects
+      .filter(Boolean)
+      .map((subject) => String(subject).trim())
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
 
@@ -17,10 +21,7 @@ const getQuizSubjects = async (req, res) => {
       subjects: sortedSubjects,
     });
   } catch (error) {
-    console.error(
-      "GET QUIZ SUBJECTS ERROR:",
-      error
-    );
+    console.error("GET QUIZ SUBJECTS ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -31,189 +32,247 @@ const getQuizSubjects = async (req, res) => {
 
 // ============================================================
 // GET QUIZ QUESTIONS
-// GET /api/quiz?subject=Artificial%20Intelligence&limit=5
+//
+// GET /api/quiz
+// ?subject=Artificial%20Intelligence
+// &unit=Unit%201
+// &limit=5
 // ============================================================
+
 const getStudentQuiz = async (req, res) => {
   try {
-    const { subject } = req.query;
+    const subject = String(req.query.subject || "").trim();
 
-    let limit = parseInt(
-      req.query.limit,
-      10
-    );
+    const unit = String(req.query.unit || "").trim();
 
-    // Default number of questions
-    if (
-      !Number.isInteger(limit) ||
-      limit <= 0
-    ) {
+    let limit = parseInt(req.query.limit, 10);
+
+    if (!Number.isInteger(limit) || limit <= 0) {
       limit = 5;
     }
 
-    // Maximum allowed
     if (limit > 50) {
       limit = 50;
     }
 
-    // ==========================================================
-    // FILTER
-    // ==========================================================
+    // ========================================================
+    // SUBJECT IS REQUIRED
+    // ========================================================
 
-    const filter = {};
-
-    if (
-      subject &&
-      subject.trim()
-    ) {
-      filter.subject = subject.trim();
+    if (!subject) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject is required.",
+      });
     }
 
-    // ==========================================================
-    // GET RANDOM QUESTIONS
-    // ==========================================================
+    // ========================================================
+    // FILTER
+    // ========================================================
 
-    const questions =
-      await QuizQuestion.aggregate([
-        {
-          $match: filter,
+    const filter = {
+      subject,
+    };
+
+    // ========================================================
+    // UNIT FILTER
+    //
+    // If unit is supplied:
+    // ONLY questions from that unit.
+    //
+    // If unit is not supplied:
+    // all questions from subject.
+    // ========================================================
+
+    if (unit) {
+      filter.unit = unit;
+    }
+
+    // ========================================================
+    // RANDOM QUESTIONS
+    // ========================================================
+
+    const questions = await QuizQuestion.aggregate([
+      {
+        $match: filter,
+      },
+
+      {
+        $sample: {
+          size: limit,
         },
+      },
 
-        {
-          $sample: {
-            size: limit,
-          },
+      // ======================================================
+      // SECURITY
+      //
+      // Do NOT send correct answer to student.
+      // ======================================================
+
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          subject: 1,
+          unit: 1,
+          optionA: 1,
+          optionB: 1,
+          optionC: 1,
+          optionD: 1,
         },
-
-        // IMPORTANT:
-        // Only INCLUDE fields that the student is allowed
-        // to receive.
-        //
-        // We intentionally do NOT include "answer".
-        {
-          $project: {
-            _id: 1,
-            question: 1,
-            subject: 1,
-            unit: 1,
-            optionA: 1,
-            optionB: 1,
-            optionC: 1,
-            optionD: 1,
-          },
-        },
-      ]);
-
-    // ==========================================================
-    // RESPONSE
-    // ==========================================================
+      },
+    ]);
 
     return res.status(200).json({
       success: true,
+
       count: questions.length,
+
+      subject,
+
+      unit,
+
       questions,
     });
   } catch (error) {
-    console.error(
-      "GET STUDENT QUIZ ERROR:",
-      error
-    );
+    console.error("GET STUDENT QUIZ ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to load quiz questions.",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : undefined,
+      message: "Failed to load quiz questions.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
 
 // ============================================================
 // SUBMIT QUIZ
+//
 // POST /api/quiz/submit
+//
+// Body:
+//
+// {
+//   subject: "Artificial Intelligence",
+//   unit: "Unit 1",
+//   answers: [
+//     {
+//       questionId: "...",
+//       answer: "A"
+//     }
+//   ]
+// }
 // ============================================================
-const submitStudentQuiz = async (
-  req,
-  res
-) => {
+
+const submitStudentQuiz = async (req, res) => {
   try {
-    const { answers } = req.body;
+    const studentId = req.user?._id || req.user?.id;
 
-    // ==========================================================
-    // VALIDATE REQUEST
-    // ==========================================================
-
-    if (
-      !Array.isArray(answers) ||
-      answers.length === 0
-    ) {
-      return res.status(400).json({
+    if (!studentId) {
+      return res.status(401).json({
         success: false,
-        message:
-          "Quiz answers are required.",
+        message: "Student authentication required.",
       });
     }
 
-    // ==========================================================
-    // EXTRACT QUESTION IDS
-    // ==========================================================
+    const subject = String(req.body?.subject || "").trim();
 
-    const questionIds = answers
-      .map(
-        (item) => item.questionId
-      )
-      .filter(Boolean);
+    const unit = String(req.body?.unit || "").trim();
+
+    const answers = req.body?.answers;
+
+    // ========================================================
+    // VALIDATE SUBJECT
+    // ========================================================
+
+    if (!subject) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject is required.",
+      });
+    }
+
+    // ========================================================
+    // VALIDATE UNIT
+    // ========================================================
+
+    if (!unit) {
+      return res.status(400).json({
+        success: false,
+        message: "Unit is required.",
+      });
+    }
+
+    // ========================================================
+    // VALIDATE ANSWERS
+    // ========================================================
+
+    if (!Array.isArray(answers) || answers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Quiz answers are required.",
+      });
+    }
+
+    // ========================================================
+    // QUESTION IDS
+    // ========================================================
+
+    const questionIds = answers.map((item) => item?.questionId).filter(Boolean);
 
     if (questionIds.length === 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "No valid question IDs were submitted.",
+        message: "No valid question IDs were submitted.",
       });
     }
 
-    // ==========================================================
-    // GET ACTUAL QUESTIONS
-    // ==========================================================
+    // ========================================================
+    // GET QUESTIONS
+    //
+    // IMPORTANT:
+    // Verify subject AND unit.
+    // ========================================================
 
-    const questions =
-      await QuizQuestion.find({
-        _id: {
-          $in: questionIds,
-        },
-      }).select(
-        "_id question subject unit optionA optionB optionC optionD answer"
-      );
+    const questions = await QuizQuestion.find({
+      _id: {
+        $in: questionIds,
+      },
 
-    if (!questions.length) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Quiz questions not found.",
-      });
-    }
+      subject,
 
-    // ==========================================================
-    // QUESTION LOOKUP
-    // ==========================================================
-
-    const questionMap =
-      new Map();
-
-    questions.forEach(
-      (question) => {
-        questionMap.set(
-          question._id.toString(),
-          question
-        );
-      }
+      unit,
+    }).select(
+      "_id question subject unit optionA optionB optionC optionD answer",
     );
 
-    // ==========================================================
-    // EVALUATE ANSWERS
-    // ==========================================================
+    // ========================================================
+    // SECURITY CHECK
+    //
+    // Every submitted question must belong
+    // to selected subject + unit.
+    // ========================================================
+
+    if (questions.length !== questionIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quiz questions for the selected subject and unit.",
+      });
+    }
+
+    // ========================================================
+    // QUESTION MAP
+    // ========================================================
+
+    const questionMap = new Map();
+
+    questions.forEach((question) => {
+      questionMap.set(String(question._id), question);
+    });
+
+    // ========================================================
+    // CALCULATE RESULT
+    // ========================================================
 
     let correct = 0;
     let wrong = 0;
@@ -222,134 +281,204 @@ const submitStudentQuiz = async (
     const results = [];
 
     answers.forEach((item) => {
-      const questionId =
-        String(item.questionId);
+      const questionId = String(item.questionId);
 
-      const selectedAnswer =
-        String(
-          item.answer || ""
-        ).toUpperCase();
+      const selectedAnswer = String(item.answer || "")
+        .trim()
+        .toUpperCase();
 
-      const question =
-        questionMap.get(
-          questionId
-        );
+      const question = questionMap.get(questionId);
 
       if (!question) {
         return;
       }
 
-      const correctAnswer =
-        String(
-          question.answer
-        ).toUpperCase();
+      const correctAnswer = String(question.answer || "")
+        .trim()
+        .toUpperCase();
 
-      // --------------------------------------------------------
+      // ------------------------------------------------------
       // UNANSWERED
-      // --------------------------------------------------------
+      // ------------------------------------------------------
 
       if (!selectedAnswer) {
         unanswered++;
       }
 
-      // --------------------------------------------------------
+      // ------------------------------------------------------
       // CORRECT
-      // --------------------------------------------------------
-
-      else if (
-        selectedAnswer ===
-        correctAnswer
-      ) {
+      // ------------------------------------------------------
+      else if (selectedAnswer === correctAnswer) {
         correct++;
       }
 
-      // --------------------------------------------------------
+      // ------------------------------------------------------
       // WRONG
-      // --------------------------------------------------------
-
+      // ------------------------------------------------------
       else {
         wrong++;
       }
 
-      // --------------------------------------------------------
-      // RESULT
-      // --------------------------------------------------------
+      // ------------------------------------------------------
+      // RESULT DETAIL
+      // ------------------------------------------------------
 
       results.push({
-        questionId:
-          question._id,
+        questionId: question._id,
 
-        question:
-          question.question,
+        question: question.question,
 
-        selectedAnswer:
-          selectedAnswer || null,
+        selectedAnswer: selectedAnswer || null,
 
         correctAnswer,
 
-        isCorrect:
-          selectedAnswer ===
-          correctAnswer,
+        isCorrect: selectedAnswer === correctAnswer,
       });
     });
 
-    // ==========================================================
-    // CALCULATE SCORE
-    // ==========================================================
+    // ========================================================
+    // TOTAL
+    // ========================================================
 
-    const total =
-      results.length;
+    const total = questions.length;
 
-    const percentage =
-      total > 0
-        ? Math.round(
-            (correct / total) *
-              100
-          )
-        : 0;
+    // ========================================================
+    // SCORE
+    //
+    // 1 point per correct answer.
+    // ========================================================
 
-    // ==========================================================
+    const score = correct;
+
+    // ========================================================
+    // PERCENTAGE
+    // ========================================================
+
+    const percentage = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+    // ========================================================
+    // SAVE RESULT TO MONGODB
+    // ========================================================
+
+    const savedResult = await QuizResult.create({
+      user: studentId,
+
+      subject,
+
+      unit,
+
+      score,
+
+      total,
+
+      correct,
+
+      wrong,
+
+      unanswered,
+
+      percentage,
+
+      completedAt: new Date(),
+    });
+
+    // ========================================================
     // RESPONSE
-    // ==========================================================
+    // ========================================================
 
     return res.status(200).json({
       success: true,
 
-      result: {
-        score: correct,
-        total,
-        correct,
-        wrong,
-        unanswered,
-        percentage,
-      },
+      message: "Quiz submitted successfully.",
 
-      results,
+      result: {
+        id: savedResult._id,
+
+        subject,
+
+        unit,
+
+        score,
+
+        total,
+
+        correct,
+
+        wrong,
+
+        unanswered,
+
+        percentage,
+
+        completedAt: savedResult.completedAt,
+
+        details: results,
+      },
     });
   } catch (error) {
-    console.error(
-      "SUBMIT STUDENT QUIZ ERROR:",
-      error
-    );
+    console.error("SUBMIT STUDENT QUIZ ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to submit quiz.",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : undefined,
+
+      message: "Failed to submit quiz.",
+
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
 
 // ============================================================
-// EXPORTS
+// GET STUDENT QUIZ RESULTS
+//
+// GET /api/quiz/results
+// ============================================================
+
+const getStudentQuizResults = async (req, res) => {
+  try {
+    const studentId = req.user?._id || req.user?.id;
+
+    if (!studentId) {
+      return res.status(401).json({
+        success: false,
+        message: "Student authentication required.",
+      });
+    }
+
+    const results = await QuizResult.find({
+      user: studentId,
+    })
+      .sort({
+        completedAt: -1,
+      })
+      .limit(20)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+
+      count: results.length,
+
+      results,
+    });
+  } catch (error) {
+    console.error("GET QUIZ RESULTS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to load quiz results.",
+    });
+  }
+};
+
+// ============================================================
+// EXPORT
 // ============================================================
 
 module.exports = {
   getQuizSubjects,
   getStudentQuiz,
   submitStudentQuiz,
+  getStudentQuizResults,
 };

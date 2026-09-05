@@ -6,11 +6,13 @@ const Note = require("../models/Note");
 
 const router = express.Router();
 
-/* =========================================================
-   GET ALL ACTIVE SUBJECTS
+/*
+=========================================================
+GET ALL ACTIVE SUBJECTS
 
-   GET /api/student/subjects
-========================================================= */
+GET /api/student/subjects
+=========================================================
+*/
 
 router.get("/", async (req, res) => {
   try {
@@ -22,28 +24,27 @@ router.get("/", async (req, res) => {
       })
       .lean();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       subjects,
     });
   } catch (error) {
     console.error("Student Subjects Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to load subjects.",
     });
   }
 });
 
-/* =========================================================
-   GET SINGLE SUBJECT
+/*
+=========================================================
+GET NOTES FOR SUBJECT
 
-   GET /api/student/subjects/:id
-
-   IMPORTANT:
-   This route MUST come after /:id/notes
-========================================================= */
+GET /api/student/subjects/:id/notes
+=========================================================
+*/
 
 router.get("/:id/notes", async (req, res) => {
   try {
@@ -55,6 +56,12 @@ router.get("/:id/notes", async (req, res) => {
         message: "Invalid subject ID.",
       });
     }
+
+    /*
+    -----------------------------------------------------
+    FIND SUBJECT
+    -----------------------------------------------------
+    */
 
     const subject = await Subject.findOne({
       _id: id,
@@ -68,29 +75,69 @@ router.get("/:id/notes", async (req, res) => {
       });
     }
 
+    /*
+    -----------------------------------------------------
+    FIND NOTES
+    -----------------------------------------------------
+
+    IMPORTANT:
+    Note.subject is an ObjectId reference to Subject.
+    Therefore we search using the subject ObjectId.
+    -----------------------------------------------------
+    */
+
     const notes = await Note.find({
-      subject: id,
+      subject: new mongoose.Types.ObjectId(id),
     })
-      .populate("subject", "name code")
+      .populate("subject", "name code year semester")
       .sort({
         createdAt: -1,
       })
       .lean();
 
-    res.status(200).json({
+    console.log(
+      `Student Notes: ${notes.length} notes found for subject ${subject.name}`,
+    );
+
+    /*
+    -----------------------------------------------------
+    RESPONSE
+    -----------------------------------------------------
+    */
+
+    return res.status(200).json({
       success: true,
-      subject,
+
+      subject: {
+        _id: subject._id,
+        name: subject.name,
+        code: subject.code,
+        course: subject.course,
+        year: subject.year,
+        semester: subject.semester,
+        description: subject.description || "",
+        units: subject.units || [],
+      },
+
       notes,
     });
   } catch (error) {
-    console.error("Student Notes Error:", error);
+    console.error("Student Subject Notes Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to load notes.",
     });
   }
 });
+
+/*
+=========================================================
+GET SINGLE SUBJECT
+
+GET /api/student/subjects/:id
+=========================================================
+*/
 
 router.get("/:id", async (req, res) => {
   try {
@@ -116,23 +163,28 @@ router.get("/:id", async (req, res) => {
     }
 
     const notes = await Note.find({
-      subject: id,
+      subject: new mongoose.Types.ObjectId(id),
     })
-      .populate("subject", "name code")
+      .populate("subject", "name code year semester")
       .sort({
         createdAt: -1,
       })
       .lean();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      subject,
+
+      subject: {
+        ...subject,
+        units: subject.units || [],
+      },
+
       notes,
     });
   } catch (error) {
     console.error("Student Subject Details Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to load subject.",
     });

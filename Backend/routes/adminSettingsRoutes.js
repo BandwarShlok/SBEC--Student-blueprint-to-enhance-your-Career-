@@ -6,32 +6,26 @@ const {
   changePassword,
 } = require("../controllers/adminSettingsController");
 
+const protectAdmin = require("../middleware/adminAuthMiddleware");
+
 const router = express.Router();
 
-/*
-========================================
-GET SETTINGS
-========================================
-*/
+// ============================================================
+// GET ADMIN SETTINGS
+// ============================================================
 
-router.get("/", getSettings);
+router.get("/", protectAdmin, getSettings);
 
+// ============================================================
+// UPDATE ADMIN SETTINGS
+// ============================================================
 
-/*
-========================================
-UPDATE SETTINGS
-========================================
-*/
+router.put("/", protectAdmin, updateSettings);
 
-router.put("/", updateSettings);
+// ============================================================
+// CHANGE ADMIN PASSWORD
+// ============================================================
 
-
-/*
-========================================
-CHANGE PASSWORD
-========================================
-*/
-
-router.put("/password", changePassword);
+router.put("/password", protectAdmin, changePassword);
 
 module.exports = router;

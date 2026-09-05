@@ -5,7 +5,8 @@ import {
   FaFileAlt,
   FaSyncAlt,
   FaExclamationCircle,
-  FaArrowRight,
+  FaClipboardCheck,
+  FaCheckCircle,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -18,11 +19,69 @@ function SubjectDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
+  const authToken =
+    token ||
+    localStorage.getItem("sbec_token") ||
+    localStorage.getItem("token");
 
   const [subject, setSubject] = useState(null);
-  const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [completedUnitIds, setCompletedUnitIds] = useState([]);
+  const [progressLoading, setProgressLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProgress = async () => {
+      if (!id || !authToken) {
+        setCompletedUnitIds([]);
+        setProgressLoading(false);
+        return;
+      }
+
+      try {
+        setProgressLoading(true);
+
+        const response = await fetch(
+          `${API_URL}/api/student/progress/subject/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to load unit progress.");
+        }
+
+        if (!cancelled) {
+          setCompletedUnitIds(
+            Array.isArray(data.progress)
+              ? data.progress.map((item) => String(item.unitId))
+              : [],
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Unit Progress Error:", err);
+          setCompletedUnitIds([]);
+        }
+      } finally {
+        if (!cancelled) setProgressLoading(false);
+      }
+    };
+
+    loadProgress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, authToken]);
 
   // =========================================================
   // LOAD SUBJECT
@@ -49,9 +108,9 @@ function SubjectDetails() {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            ...(token
+            ...(authToken
               ? {
-                  Authorization: `Bearer ${token}`,
+                  Authorization: `Bearer ${authToken}`,
                 }
               : {}),
           },
@@ -87,14 +146,6 @@ function SubjectDetails() {
         const receivedSubject = data.subject || data.data || data;
 
         setSubject(receivedSubject);
-
-        setNotes(
-          Array.isArray(data.notes)
-            ? data.notes
-            : Array.isArray(receivedSubject.notes)
-              ? receivedSubject.notes
-              : [],
-        );
       } catch (err) {
         if (cancelled) return;
 
@@ -113,7 +164,7 @@ function SubjectDetails() {
     return () => {
       cancelled = true;
     };
-  }, [id, token]);
+  }, [id, authToken]);
 
   // =========================================================
   // REFRESH
@@ -130,9 +181,9 @@ function SubjectDetails() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          ...(token
+          ...(authToken
             ? {
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${authToken}`,
               }
             : {}),
         },
@@ -147,14 +198,6 @@ function SubjectDetails() {
       const receivedSubject = data.subject || data.data || data;
 
       setSubject(receivedSubject);
-
-      setNotes(
-        Array.isArray(data.notes)
-          ? data.notes
-          : Array.isArray(receivedSubject.notes)
-            ? receivedSubject.notes
-            : [],
-      );
 
       toast.success("Subject refreshed");
     } catch (err) {
@@ -222,15 +265,95 @@ function SubjectDetails() {
     );
   }
 
-  // =========================================================
-  // SUBJECT DATA
-  // =========================================================
+  const units = Array.isArray(subject.units) ? subject.units : [];
+  const totalUnits = units.length;
 
-  const progress = Math.min(100, Math.max(0, Number(subject.progress || 0)));
+  const completedUnits = completedUnitIds.length;
 
-  const completedUnits = Number(subject.completedUnits || 0);
+  const progress =
+    totalUnits === 0
+      ? 0
+      : Math.min(
+          100,
+          Math.max(0, Math.round((completedUnits / totalUnits) * 100)),
+        );
 
-  const totalUnits = Number(subject.units || 0);
+  const handleToggleUnit = async (unit) => {
+    const unitId = unit?._id || unit?.id;
+
+    if (!unitId) {
+      toast.error("Unit ID is missing.");
+      return;
+    }
+
+    if (!authToken) {
+      toast.error("Please login again.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/student/progress/subject/${id}/unit/${unitId}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to update unit progress.");
+      }
+
+      const normalizedId = String(unitId);
+
+      setCompletedUnitIds((previous) => {
+        if (data.completed) {
+          return previous.includes(normalizedId)
+            ? previous
+            : [...previous, normalizedId];
+        }
+        return previous.filter((item) => String(item) !== normalizedId);
+      });
+
+      toast.success(
+        data.completed
+          ? "Unit completed successfully."
+          : "Unit marked as incomplete.",
+      );
+    } catch (err) {
+      console.error("Toggle Unit Error:", err);
+      toast.error(err.message || "Unable to update unit progress.");
+    }
+  };
+
+  const handleNotes = (unitId) => {
+    navigate(`/subjects/${id}/notes?unit=${encodeURIComponent(unitId)}`);
+  };
+
+  const handleQuiz = (unit) => {
+    const unitId = unit?._id || unit?.id;
+    const unitName = unit?.name || unit?.title || "";
+
+    if (!unitId) {
+      toast.error("Unit ID is missing.");
+      return;
+    }
+
+    if (!subject?.name || !unitName) {
+      toast.error("Subject or unit information is missing.");
+      return;
+    }
+
+    navigate(
+      `/quiz?subject=${encodeURIComponent(
+        subject.name,
+      )}&unit=${encodeURIComponent(unitName)}`,
+    );
+  };
 
   // =========================================================
   // MAIN
@@ -306,9 +429,9 @@ function SubjectDetails() {
         )}
 
         <div className="info-card">
-          <span>Notes</span>
+          <span>Units</span>
 
-          <strong>{notes.length}</strong>
+          <strong>{totalUnits}</strong>
         </div>
       </section>
 
@@ -348,65 +471,125 @@ function SubjectDetails() {
       </section>
 
       {/* ===================================================
-          NOTES
+          UNITS & TOPICS
       =================================================== */}
 
-      <section className="notes-section">
+      <section className="units-section">
         <div className="section-header">
           <div>
-            <p className="page-label">STUDY MATERIAL</p>
-
-            <h2>Subject Notes</h2>
-
+            <p className="page-label">COURSE CONTENT</p>
+            <h2>Units &amp; Topics</h2>
             <p className="section-description">
-              Access notes and study material for this subject.
+              Study each unit, view its topics, open notes, and take the
+              unit-wise quiz.
             </p>
           </div>
-
-          <button
-            className="view-all-button"
-            onClick={() => navigate(`/subjects/${id}/notes`)}
-          >
-            View All
-            <FaArrowRight />
-          </button>
         </div>
 
-        {notes.length === 0 ? (
-          <div className="empty-notes">
+        {units.length === 0 ? (
+          <div className="empty-units">
             <div className="empty-icon">
-              <FaFileAlt />
+              <FaBook />
             </div>
-
-            <h3>No Notes Available</h3>
-
+            <h3>No Units Available</h3>
             <p>
-              Notes for this subject will appear here when they are added by the
-              administrator.
+              Units and topics will appear here when the administrator adds
+              them.
             </p>
           </div>
         ) : (
-          <div className="notes-grid">
-            {notes.slice(0, 6).map((note, index) => (
-              <div className="note-card" key={note._id || note.id || index}>
-                <div className="note-icon">
-                  <FaFileAlt />
-                </div>
+          <div className="units-list">
+            {units.map((unit, index) => {
+              const unitId = unit?._id || unit?.id;
+              const unitName = unit?.name || unit?.title || `Unit ${index + 1}`;
+              const topics = Array.isArray(unit?.topics) ? unit.topics : [];
+              const completed = completedUnitIds.includes(String(unitId));
 
-                <div className="note-content">
-                  <h3>{note.title || note.name || "Study Note"}</h3>
-
-                  {note.description && <p>{note.description}</p>}
-                </div>
-
-                <button
-                  className="note-arrow"
-                  onClick={() => navigate(`/subjects/${id}/notes`)}
+              return (
+                <article
+                  className={`unit-card ${completed ? "unit-completed" : ""}`}
+                  key={unitId || index}
                 >
-                  <FaArrowRight />
-                </button>
-              </div>
-            ))}
+                  <div className="unit-number">
+                    {completed ? <FaCheckCircle /> : index + 1}
+                  </div>
+
+                  <div className="unit-main">
+                    <div className="unit-heading-row">
+                      <div>
+                        <p className="unit-label">UNIT {index + 1}</p>
+                        <h3>{unitName}</h3>
+                      </div>
+                      <span
+                        className={`unit-status ${completed ? "completed" : "pending"}`}
+                      >
+                        {completed ? "Completed" : "Not Completed"}
+                      </span>
+                    </div>
+
+                    {unit.description && (
+                      <p className="unit-description">{unit.description}</p>
+                    )}
+
+                    <div className="topics-block">
+                      <div className="topics-title">
+                        Topics ({topics.length})
+                      </div>
+                      {topics.length === 0 ? (
+                        <p className="no-topics">
+                          No topics added for this unit.
+                        </p>
+                      ) : (
+                        <div className="topics-list">
+                          {topics.map((topic, topicIndex) => (
+                            <div
+                              className="topic-item"
+                              key={topic?._id || topicIndex}
+                            >
+                              <span>{topicIndex + 1}</span>
+                              <strong>
+                                {topic?.name ||
+                                  topic?.title ||
+                                  "Untitled Topic"}
+                              </strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="unit-actions">
+                      <button
+                        className="unit-action secondary"
+                        onClick={() => handleNotes(unitId)}
+                        disabled={!unitId}
+                      >
+                        <FaFileAlt />
+                        Notes
+                      </button>
+
+                      <button
+                        className="unit-action primary"
+                        onClick={() => handleQuiz(unitId)}
+                        disabled={!unitId}
+                      >
+                        <FaClipboardCheck />
+                        Unit Quiz
+                      </button>
+
+                      <button
+                        className={`unit-action complete ${completed ? "done" : ""}`}
+                        onClick={() => handleToggleUnit(unit)}
+                        disabled={!unitId || progressLoading}
+                      >
+                        <FaCheckCircle />
+                        {completed ? "Mark Incomplete" : "Mark Complete"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
@@ -719,206 +902,206 @@ const styles = `
 
 
   /* ========================================================
-     NOTES
+     UNITS & TOPICS
   ======================================================== */
 
-  .notes-section {
+  .units-section {
     background: #0f172a;
-
     border: 1px solid #1e293b;
-
     border-radius: 16px;
-
     padding: 22px;
+    margin-bottom: 18px;
   }
 
-  .section-description {
-    color: #64748b;
-
-    font-size: 11px;
-
-    margin: 6px 0 0;
-  }
-
-  .view-all-button {
+  .units-list {
     display: flex;
-
-    align-items: center;
-
-    gap: 7px;
-
-    background: transparent;
-
-    border: none;
-
-    color: #a78bfa;
-
-    cursor: pointer;
-
-    font-size: 11px;
-
-    font-weight: 600;
-  }
-
-  .view-all-button:hover {
-    color: #ffffff;
-  }
-
-  .notes-grid {
-    display: grid;
-
-    grid-template-columns:
-      repeat(
-        2,
-        minmax(0, 1fr)
-      );
-
-    gap: 12px;
-
+    flex-direction: column;
+    gap: 14px;
     margin-top: 20px;
   }
 
-  .note-card {
+  .unit-card {
     display: flex;
-
-    align-items: center;
-
-    gap: 12px;
-
+    gap: 16px;
+    padding: 18px;
     background: #020617;
-
     border: 1px solid #1e293b;
-
-    border-radius: 12px;
-
-    padding: 14px;
+    border-radius: 14px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
   }
 
-  .note-icon {
+  .unit-card:hover {
+    border-color: #4c1d95;
+    transform: translateY(-1px);
+  }
+
+  .unit-card.unit-completed {
+    border-color: #065f46;
+  }
+
+  .unit-number {
     width: 42px;
     height: 42px;
-
     min-width: 42px;
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
+    border-radius: 12px;
     background: #312e81;
-
     color: #a78bfa;
-
-    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
   }
 
-  .note-content {
-    flex: 1;
-
-    min-width: 0;
+  .unit-completed .unit-number {
+    background: #064e3b;
+    color: #6ee7b7;
   }
 
-  .note-content h3 {
-    color: #e2e8f0;
+  .unit-main { flex: 1; min-width: 0; }
 
-    font-size: 12px;
-
-    margin: 0;
-
-    overflow-wrap: anywhere;
+  .unit-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 15px;
   }
 
-  .note-content p {
-    color: #64748b;
-
+  .unit-label {
+    color: #8b5cf6;
     font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin: 0 0 5px;
+  }
 
-    margin: 5px 0 0;
+  .unit-heading-row h3 {
+    color: #f8fafc;
+    font-size: 17px;
+    line-height: 1.4;
+    margin: 0;
+  }
 
-    overflow: hidden;
-
-    text-overflow: ellipsis;
-
+  .unit-status {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
     white-space: nowrap;
   }
 
-  .note-arrow {
-    width: 32px;
-    height: 32px;
+  .unit-status.pending { background: #1e293b; color: #94a3b8; }
+  .unit-status.completed { background: #064e3b; color: #6ee7b7; }
 
-    min-width: 32px;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    background: #1e293b;
-
-    border: none;
-
-    border-radius: 8px;
-
+  .unit-description {
     color: #94a3b8;
+    font-size: 11px;
+    line-height: 1.6;
+    margin: 9px 0 0;
+  }
 
+  .topics-block {
+    margin-top: 15px;
+    padding: 13px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+  }
+
+  .topics-title {
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 9px;
+  }
+
+  .topics-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .topic-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 8px 9px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+  }
+
+  .topic-item span {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #312e81;
+    color: #a78bfa;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .topic-item strong {
+    min-width: 0;
+    color: #cbd5e1;
+    font-size: 10px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  .no-topics { color: #64748b; font-size: 10px; margin: 0; }
+
+  .unit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .unit-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
     cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    transition: 0.2s ease;
   }
 
-  .note-arrow:hover {
-    background: #334155;
+  .unit-action:disabled { opacity: 0.5; cursor: not-allowed; }
+  .unit-action.secondary { background: #1e293b; border: 1px solid #334155; color: #cbd5e1; }
+  .unit-action.secondary:hover:not(:disabled) { background: #334155; color: #fff; }
+  .unit-action.primary { background: #7c3aed; border: 1px solid #7c3aed; color: #fff; }
+  .unit-action.primary:hover:not(:disabled) { background: #8b5cf6; }
+  .unit-action.complete { background: #312e81; border: 1px solid #4338ca; color: #c4b5fd; }
+  .unit-action.complete:hover:not(:disabled) { background: #4338ca; color: #fff; }
+  .unit-action.complete.done { background: #064e3b; border-color: #047857; color: #6ee7b7; }
 
-    color: #ffffff;
+  .empty-units {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-top: 15px;
   }
 
+  .empty-units h3 { color: #cbd5e1; font-size: 15px; margin: 12px 0 5px; }
+  .empty-units p { color: #64748b; max-width: 450px; font-size: 11px; line-height: 1.6; margin: 0; }
 
   /* ========================================================
      EMPTY
   ======================================================== */
-
-  .empty-notes {
-    min-height: 220px;
-
-    display: flex;
-
-    flex-direction: column;
-
-    align-items: center;
-
-    justify-content: center;
-
-    text-align: center;
-
-    margin-top: 15px;
-  }
-
-  .empty-icon {
-    color: #475569;
-
-    font-size: 35px;
-  }
-
-  .empty-notes h3 {
-    color: #cbd5e1;
-
-    font-size: 15px;
-
-    margin: 12px 0 5px;
-  }
-
-  .empty-notes p {
-    color: #64748b;
-
-    max-width: 450px;
-
-    font-size: 11px;
-
-    line-height: 1.6;
-
-    margin: 0;
-  }
-
 
   /* ========================================================
      STATE
@@ -1101,10 +1284,8 @@ const styles = `
       padding: 14px;
     }
 
-    .progress-card,
-    .notes-section {
+    .progress-card {
       padding: 17px;
-
       border-radius: 14px;
     }
 
@@ -1112,8 +1293,21 @@ const styles = `
       font-size: 17px;
     }
 
-    .notes-grid {
+    .unit-heading-row {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .topics-list {
       grid-template-columns: 1fr;
+    }
+
+    .unit-actions {
+      flex-direction: column;
+    }
+
+    .unit-action {
+      width: 100%;
     }
 
   }

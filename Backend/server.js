@@ -23,10 +23,9 @@ ADMIN ROUTES
 
 const adminRoutes = require("./routes/adminRoutes");
 const adminNoteRoutes = require("./routes/adminNoteRoutes");
-
+const unitProgressRoutes = require("./routes/unitProgressRoutes");
 const paperRoutes = require("./routes/paperRoutes");
 const quizRoutes = require("./routes/quizRoutes");
-const weeklyTestRoutes = require("./routes/weeklyTestRoutes");
 const examRoutes = require("./routes/examRoutes");
 const adminSettingsRoutes = require("./routes/adminSettingsRoutes");
 
@@ -61,6 +60,8 @@ const studentQuizRoutes = require("./routes/studentQuizRoutes");
 const studentSubjectRoutes = require("./routes/studentSubjectRoutes");
 
 const dailyPlannerRoutes = require("./routes/dailyPlannerRoutes");
+
+const studentSettingsRoutes = require("./routes/studentSettingsRoutes");
 
 /*
 =========================================================
@@ -196,12 +197,6 @@ Admin Quiz
 app.use("/api/admin/quiz", quizRoutes);
 
 /*
-Admin Weekly Tests
-*/
-
-app.use("/api/admin/weekly-tests", weeklyTestRoutes);
-
-/*
 Admin Exams
 */
 
@@ -237,6 +232,8 @@ Student Subjects
 
 app.use("/api/student/subjects", studentSubjectRoutes);
 
+app.use("/api/student/progress", unitProgressRoutes);
+
 /*
 Student Daily Planner
 */
@@ -254,6 +251,12 @@ Student Profile
 */
 
 app.use("/api/profile", profileRoutes);
+
+/*
+Student Setting
+*/
+
+app.use("/api/student/settings", studentSettingsRoutes);
 
 /*
 =========================================================
@@ -320,8 +323,6 @@ app.get("/api", (req, res) => {
       papers: "/api/papers",
 
       quiz: "/api/admin/quiz",
-
-      weeklyTests: "/api/admin/weekly-tests",
 
       exams: "/api/admin/exams",
 

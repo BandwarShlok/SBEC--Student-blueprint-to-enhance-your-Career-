@@ -7,7 +7,6 @@ import {
   FaRedo,
   FaTrophy,
   FaSyncAlt,
-  FaExclamationCircle,
 } from "react-icons/fa";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -15,9 +14,11 @@ import toast from "react-hot-toast";
 import API_URL from "../../config/api";
 
 const API_ROOT = String(API_URL || "").replace(/\/+$/, "");
-const QUIZ_API = API_ROOT.endsWith("/api")
-  ? `${API_ROOT}/quiz`
-  : `${API_ROOT}/api/quiz`;
+
+const API_BASE_URL = API_ROOT.endsWith("/api") ? API_ROOT : `${API_ROOT}/api`;
+
+const QUIZ_API = `${API_BASE_URL}/quiz`;
+const STUDENT_SUBJECTS_API = `${API_BASE_URL}/student/subjects`;
 
 const SUBJECT_ID_MAP = {
   1: "Artificial Intelligence",
@@ -27,19 +28,14 @@ const SUBJECT_ID_MAP = {
 };
 
 const getToken = () =>
-  localStorage.getItem("sbec_token") ||
-  localStorage.getItem("token");
+  localStorage.getItem("sbec_token") || localStorage.getItem("token");
 
 const getStudentHeaders = (includeJson = false) => {
   const token = getToken();
 
   return {
-    ...(includeJson
-      ? { "Content-Type": "application/json" }
-      : {}),
-    ...(token
-      ? { Authorization: `Bearer ${token}` }
-      : {}),
+    ...(includeJson ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
 
@@ -79,29 +75,68 @@ function Quiz() {
 
   const subjectParam = searchParams.get("subject");
 
+  const unitParam = searchParams.get("unit") || "";
+
   const initialSubject =
-    SUBJECT_ID_MAP[subjectParam] ||
-    (subjectParam ? subjectParam : "");
+    SUBJECT_ID_MAP[subjectParam] || (subjectParam ? subjectParam : "");
 
   const [subjects, setSubjects] = useState([]);
-  const [selectedSubject, setSelectedSubject] =
-    useState(initialSubject);
+
+  const [selectedSubject, setSelectedSubject] = useState(initialSubject);
+
+  const [selectedUnit, setSelectedUnit] = useState(unitParam);
+
+  // ============================================================
+  // SELECTED SUBJECT DATA
+  // ============================================================
+
+  const selectedSubjectData = useMemo(
+    () =>
+      subjects.find(
+        (item) =>
+          item?.name === selectedSubject ||
+          item?._id === selectedSubject ||
+          item?.code === selectedSubject,
+      ) || null,
+    [subjects, selectedSubject],
+  );
+
+  // ============================================================
+  // UNITS OF SELECTED SUBJECT
+  // ============================================================
+
+  const units = useMemo(() => {
+    if (!selectedSubjectData?.units) {
+      return [];
+    }
+
+    return Array.isArray(selectedSubjectData.units)
+      ? selectedSubjectData.units
+      : [];
+  }, [selectedSubjectData]);
 
   const [questions, setQuestions] = useState([]);
+
   const [started, setStarted] = useState(false);
+
   const [currentQuestion, setCurrentQuestion] = useState(0);
+
   const [answers, setAnswers] = useState({});
+
   const [submitted, setSubmitted] = useState(false);
 
   const [result, setResult] = useState(null);
 
   const [loadingSubjects, setLoadingSubjects] = useState(true);
+
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState("");
 
   // ============================================================
-  // FETCH SUBJECTS FROM BACKEND
+  // FETCH SUBJECTS + UNITS
   // ============================================================
 
   useEffect(() => {
@@ -112,29 +147,35 @@ function Quiz() {
         setLoadingSubjects(true);
         setError("");
 
-        const response = await fetch(`${QUIZ_API}/subjects`, {
+        const response = await fetch(STUDENT_SUBJECTS_API, {
           method: "GET",
           headers: getStudentHeaders(),
         });
 
         const data = await readApiResponse(response);
 
+        // --------------------------------------------------------
+        // AUTH ERROR
+        // --------------------------------------------------------
+
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem("sbec_token");
           localStorage.removeItem("sbec_user");
+
           window.location.href = "/login";
+
           return;
         }
 
+        // --------------------------------------------------------
+        // API ERROR
+        // --------------------------------------------------------
+
         if (!response.ok || !data.success) {
-          throw new Error(
-            data.message || "Failed to load quiz subjects."
-          );
+          throw new Error(data.message || "Failed to load subjects.");
         }
 
-        const list = Array.isArray(data.subjects)
-          ? data.subjects
-          : [];
+        const list = Array.isArray(data.subjects) ? data.subjects : [];
 
         if (cancelled) {
           return;
@@ -142,14 +183,27 @@ function Quiz() {
 
         setSubjects(list);
 
+        // --------------------------------------------------------
+        // SET INITIAL SUBJECT
+        // --------------------------------------------------------
+
         if (list.length > 0) {
           setSelectedSubject((previous) => {
-            if (previous && list.includes(previous)) {
-              return previous;
-            }
+            const legacySubject = SUBJECT_ID_MAP[subjectParam];
 
-            return list[0];
+            const requestedSubject = legacySubject || previous;
+
+            const matched = list.find(
+              (item) =>
+                item?.name === requestedSubject ||
+                item?._id === requestedSubject ||
+                item?.code === requestedSubject,
+            );
+
+            return matched?.name || list[0]?.name || "";
           });
+        } else {
+          setSelectedSubject("");
         }
       } catch (err) {
         if (cancelled) {
@@ -157,9 +211,12 @@ function Quiz() {
         }
 
         console.error("QUIZ SUBJECT ERROR:", err);
-        setError(
-          err.message || "Unable to load quiz subjects."
-        );
+
+        setSubjects([]);
+        setSelectedSubject("");
+        setSelectedUnit("");
+
+        setError(err.message || "Unable to load subjects.");
       } finally {
         if (!cancelled) {
           setLoadingSubjects(false);
@@ -173,18 +230,28 @@ function Quiz() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, []);
+  }, [subjectParam]);
 
   // ============================================================
-  // FETCH QUESTIONS FROM BACKEND
+  // FETCH QUESTIONS
   // ============================================================
 
   useEffect(() => {
     let cancelled = false;
 
     const loadQuestions = async () => {
-      if (!selectedSubject) {
+      // --------------------------------------------------------
+      // SUBJECT OR UNIT NOT SELECTED
+      // --------------------------------------------------------
+
+      if (!selectedSubject || !selectedUnit) {
         setQuestions([]);
+        setStarted(false);
+        setCurrentQuestion(0);
+        setAnswers({});
+        setSubmitted(false);
+        setResult(null);
+
         return;
       }
 
@@ -194,28 +261,58 @@ function Quiz() {
 
         const response = await fetch(
           `${QUIZ_API}?subject=${encodeURIComponent(
-            selectedSubject
-          )}&limit=5`,
+            selectedSubject,
+          )}&unit=${encodeURIComponent(selectedUnit)}&limit=5`,
           {
             method: "GET",
             headers: getStudentHeaders(),
-          }
+          },
         );
 
         const data = await readApiResponse(response);
 
+        // --------------------------------------------------------
+        // AUTH ERROR
+        // --------------------------------------------------------
+
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem("sbec_token");
+
           localStorage.removeItem("sbec_user");
+
           window.location.href = "/login";
+
           return;
         }
 
-        if (!response.ok || !data.success) {
-          throw new Error(
-            data.message || "Failed to load quiz questions."
-          );
+        // --------------------------------------------------------
+        // NO QUESTIONS
+        // --------------------------------------------------------
+
+        if (response.status === 404) {
+          setQuestions([]);
+          setStarted(false);
+          setCurrentQuestion(0);
+          setAnswers({});
+          setSubmitted(false);
+          setResult(null);
+
+          setError(`No quiz questions are available for ${selectedUnit}.`);
+
+          return;
         }
+
+        // --------------------------------------------------------
+        // OTHER API ERROR
+        // --------------------------------------------------------
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Failed to load quiz questions.");
+        }
+
+        // --------------------------------------------------------
+        // NORMALIZE QUESTIONS
+        // --------------------------------------------------------
 
         const list = Array.isArray(data.questions)
           ? data.questions.map(normalizeQuestion)
@@ -226,6 +323,7 @@ function Quiz() {
         }
 
         setQuestions(list);
+
         setStarted(false);
         setCurrentQuestion(0);
         setAnswers({});
@@ -233,9 +331,7 @@ function Quiz() {
         setResult(null);
 
         if (list.length === 0) {
-          setError(
-            `No quiz questions are available for ${selectedSubject}.`
-          );
+          setError(`No quiz questions are available for ${selectedUnit}.`);
         }
       } catch (err) {
         if (cancelled) {
@@ -243,10 +339,11 @@ function Quiz() {
         }
 
         console.error("QUIZ QUESTIONS ERROR:", err);
+
         setQuestions([]);
-        setError(
-          err.message || "Unable to load quiz questions."
-        );
+        setStarted(false);
+
+        setError(err.message || "Unable to load quiz questions.");
       } finally {
         if (!cancelled) {
           setLoadingQuestions(false);
@@ -260,7 +357,7 @@ function Quiz() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectedSubject]);
+  }, [selectedSubject, selectedUnit]);
 
   // ============================================================
   // SAFE QUESTION DATA
@@ -274,21 +371,33 @@ function Quiz() {
           item.id &&
           item.question &&
           Array.isArray(item.options) &&
-          item.options.length === 4
+          item.options.length === 4,
       ),
-    [questions]
+    [questions],
   );
 
-  const selectedAnswer =
-    answers[safeQuestions[currentQuestion]?.id];
+  const selectedAnswer = answers[safeQuestions[currentQuestion]?.id];
 
   // ============================================================
   // START QUIZ
   // ============================================================
 
   const handleStart = () => {
+    if (!selectedSubject) {
+      toast.error("Please select a subject.");
+
+      return;
+    }
+
+    if (!selectedUnit) {
+      toast.error("Please select a unit.");
+
+      return;
+    }
+
     if (safeQuestions.length === 0) {
-      toast.error("No questions available for this subject.");
+      toast.error("No questions available for this unit.");
+
       return;
     }
 
@@ -300,6 +409,43 @@ function Quiz() {
   };
 
   // ============================================================
+  // SUBJECT CHANGE
+  // ============================================================
+
+  const handleSubjectChange = (event) => {
+    const value = event.target.value;
+
+    setSelectedSubject(value);
+    setSelectedUnit("");
+
+    setQuestions([]);
+    setStarted(false);
+    setCurrentQuestion(0);
+    setAnswers({});
+    setSubmitted(false);
+    setResult(null);
+    setError("");
+  };
+
+  // ============================================================
+  // UNIT CHANGE
+  // ============================================================
+
+  const handleUnitChange = (event) => {
+    const value = event.target.value;
+
+    setSelectedUnit(value);
+
+    setQuestions([]);
+    setStarted(false);
+    setCurrentQuestion(0);
+    setAnswers({});
+    setSubmitted(false);
+    setResult(null);
+    setError("");
+  };
+
+  // ============================================================
   // SELECT ANSWER
   // ============================================================
 
@@ -308,8 +454,7 @@ function Quiz() {
       return;
     }
 
-    const questionId =
-      safeQuestions[currentQuestion]?.id;
+    const questionId = safeQuestions[currentQuestion]?.id;
 
     if (!questionId) {
       return;
@@ -328,6 +473,7 @@ function Quiz() {
   const handleNext = () => {
     if (selectedAnswer === undefined) {
       toast.error("Please select an answer first.");
+
       return;
     }
 
@@ -347,16 +493,15 @@ function Quiz() {
   };
 
   // ============================================================
-  // SUBMIT TO BACKEND
+  // SUBMIT QUIZ
   // ============================================================
 
   const handleSubmit = async () => {
     const answeredCount = Object.keys(answers).length;
 
     if (answeredCount < safeQuestions.length) {
-      toast.error(
-        "Please answer all questions before submitting."
-      );
+      toast.error("Please answer all questions before submitting.");
+
       return;
     }
 
@@ -364,6 +509,7 @@ function Quiz() {
 
     if (!token) {
       toast.error("Your session has expired. Please login again.");
+
       return;
     }
 
@@ -373,11 +519,13 @@ function Quiz() {
 
       const payload = {
         subject: selectedSubject,
+
+        unit: selectedUnit,
+
         answers: safeQuestions.map((question) => ({
           questionId: question.id,
-          answer: String.fromCharCode(
-            65 + answers[question.id]
-          ),
+
+          answer: String.fromCharCode(65 + answers[question.id]),
         })),
       };
 
@@ -389,34 +537,44 @@ function Quiz() {
 
       const data = await readApiResponse(response);
 
+      // --------------------------------------------------------
+      // AUTH ERROR
+      // --------------------------------------------------------
+
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem("sbec_token");
+
         localStorage.removeItem("sbec_user");
 
-        toast.error(
-          "Session expired. Please login again."
-        );
+        toast.error("Session expired. Please login again.");
 
         window.location.href = "/login";
+
         return;
       }
 
+      // --------------------------------------------------------
+      // API ERROR
+      // --------------------------------------------------------
+
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to submit quiz."
-        );
+        throw new Error(data.message || "Failed to submit quiz.");
       }
+
+      // --------------------------------------------------------
+      // RESULT
+      // --------------------------------------------------------
 
       setResult({
         score: Number(data.result?.score || 0),
+
         correct: Number(data.result?.correct || 0),
+
         wrong: Number(data.result?.wrong || 0),
-        total: Number(
-          data.result?.total || safeQuestions.length
-        ),
-        percentage: Number(
-          data.result?.percentage || 0
-        ),
+
+        total: Number(data.result?.total || safeQuestions.length),
+
+        percentage: Number(data.result?.percentage || 0),
       });
 
       setSubmitted(true);
@@ -425,13 +583,9 @@ function Quiz() {
     } catch (err) {
       console.error("QUIZ SUBMIT ERROR:", err);
 
-      setError(
-        err.message || "Unable to submit quiz."
-      );
+      setError(err.message || "Unable to submit quiz.");
 
-      toast.error(
-        err.message || "Unable to submit quiz."
-      );
+      toast.error(err.message || "Unable to submit quiz.");
     } finally {
       setSubmitting(false);
     }
@@ -451,13 +605,11 @@ function Quiz() {
   };
 
   const score = result?.correct || 0;
+
   const total = result?.total || safeQuestions.length || 0;
 
   const percentage =
-    result?.percentage ??
-    (total > 0
-      ? Math.round((score / total) * 100)
-      : 0);
+    result?.percentage ?? (total > 0 ? Math.round((score / total) * 100) : 0);
 
   // ============================================================
   // LOADING
@@ -470,13 +622,9 @@ function Quiz() {
           <FaSyncAlt />
         </div>
 
-        <h2 style={styles.loadingTitle}>
-          Loading Quiz...
-        </h2>
+        <h2 style={styles.loadingTitle}>Loading Quiz...</h2>
 
-        <p style={styles.loadingText}>
-          Getting questions from the server.
-        </p>
+        <p style={styles.loadingText}>Getting questions from the server.</p>
 
         <style>
           {`
@@ -496,61 +644,13 @@ function Quiz() {
   }
 
   // ============================================================
-  // ERROR / EMPTY
+  // SUBJECT / UNIT SELECTION
   // ============================================================
 
-  if (!selectedSubject || safeQuestions.length === 0) {
-    return (
-      <div style={styles.errorPage}>
-        <FaExclamationCircle style={styles.errorIcon} />
-
-        <h2 style={styles.errorTitle}>
-          {error
-            ? "Unable to Load Quiz"
-            : "No Quiz Questions"}
-        </h2>
-
-        <p style={styles.errorText}>
-          {error ||
-            "There are no quiz questions available yet."}
-        </p>
-
-        {subjects.length > 0 && (
-          <select
-            value={selectedSubject}
-            onChange={(event) =>
-              setSelectedSubject(event.target.value)
-            }
-            style={{
-              ...styles.subjectSelect,
-              maxWidth: "350px",
-              marginTop: "10px",
-            }}
-          >
-            {subjects.map((subject) => (
-              <option key={subject} value={subject}>
-                {subject}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <button
-          onClick={() => window.location.reload()}
-          style={styles.retryButton}
-        >
-          <FaSyncAlt />
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  // ============================================================
-  // START PAGE
-  // ============================================================
-
-  if (!started) {
+  if (
+    !started &&
+    (!selectedSubject || !selectedUnit || safeQuestions.length === 0)
+  ) {
     return (
       <div style={styles.startPage}>
         <div style={styles.startCard}>
@@ -558,55 +658,98 @@ function Quiz() {
             <FaClipboardCheck />
           </div>
 
-          <h1 style={styles.startTitle}>
-            Quiz & Practice
-          </h1>
+          <h1 style={styles.startTitle}>Quiz & Practice</h1>
 
           <p style={styles.startDescription}>
-            Test your understanding of your subjects with
-            short practice quizzes.
+            Test your understanding of your subjects with short practice
+            quizzes.
           </p>
 
           <div style={styles.subjectSelection}>
-            <label style={styles.label}>
-              Select Subject
-            </label>
+            <label style={styles.label}>Select Subject</label>
 
             <select
               value={selectedSubject}
-              onChange={(event) =>
-                setSelectedSubject(event.target.value)
-              }
+              onChange={handleSubjectChange}
               style={styles.subjectSelect}
             >
+              <option value="">Select Subject</option>
+
               {subjects.map((subject) => (
-                <option key={subject} value={subject}>
-                  {subject}
+                <option
+                  key={subject._id || subject.code || subject.name}
+                  value={subject.name}
+                >
+                  {subject.name}
                 </option>
               ))}
             </select>
           </div>
 
+          <div
+            style={{
+              ...styles.subjectSelection,
+              marginTop: "15px",
+            }}
+          >
+            <label style={styles.label}>Select Unit</label>
+
+            <select
+              value={selectedUnit}
+              onChange={handleUnitChange}
+              style={{
+                ...styles.subjectSelect,
+                opacity: units.length === 0 ? 0.6 : 1,
+              }}
+              disabled={!selectedSubject || units.length === 0}
+            >
+              <option value="">
+                {!selectedSubject
+                  ? "Select Subject First"
+                  : units.length > 0
+                    ? "Select Unit"
+                    : "No units available"}
+              </option>
+
+              {units.map((unit) => (
+                <option key={unit._id || unit.name} value={unit.name}>
+                  {unit.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {error && <p style={styles.selectionError}>{error}</p>}
+
           <div style={styles.quizInfo}>
             <div>
               <strong>{safeQuestions.length}</strong>
+
               <span>Questions</span>
             </div>
 
             <div>
               <strong>MCQ</strong>
+
               <span>Format</span>
             </div>
 
             <div>
               <strong>100%</strong>
+
               <span>Evaluation</span>
             </div>
           </div>
 
           <button
             onClick={handleStart}
-            style={styles.startButton}
+            style={{
+              ...styles.startButton,
+              opacity:
+                !selectedSubject || !selectedUnit || safeQuestions.length === 0
+                  ? 0.6
+                  : 1,
+            }}
           >
             Start Quiz
             <FaArrowRight />
@@ -628,25 +771,24 @@ function Quiz() {
             <FaTrophy />
           </div>
 
-          <h1 style={styles.resultTitle}>
-            Quiz Completed!
-          </h1>
+          <h1 style={styles.resultTitle}>Quiz Completed!</h1>
 
-          <p style={styles.resultSubject}>
-            {selectedSubject}
-          </p>
+          <p style={styles.resultSubject}>{selectedSubject}</p>
+
+          <p style={styles.resultUnit}>{selectedUnit}</p>
 
           <div
             style={{
               ...styles.scoreCircle,
               background: `conic-gradient(
-                #8B5CF6 ${percentage * 3.6}deg,
-                #1E293B 0deg
-              )`,
+                  #8B5CF6 ${percentage * 3.6}deg,
+                  #1E293B 0deg
+                )`,
             }}
           >
             <div style={styles.resultScoreInner}>
               <strong>{percentage}%</strong>
+
               <span>Score</span>
             </div>
           </div>
@@ -654,27 +796,25 @@ function Quiz() {
           <div style={styles.scoreDetails}>
             <div>
               <strong>{score}</strong>
+
               <span>Correct</span>
             </div>
 
             <div>
-              <strong>
-                {result?.wrong ?? total - score}
-              </strong>
+              <strong>{result?.wrong ?? total - score}</strong>
+
               <span>Wrong</span>
             </div>
 
             <div>
               <strong>{total}</strong>
+
               <span>Total</span>
             </div>
           </div>
 
           <div style={styles.resultActions}>
-            <button
-              onClick={restartQuiz}
-              style={styles.restartButton}
-            >
+            <button onClick={restartQuiz} style={styles.restartButton}>
               <FaRedo />
               Try Again
             </button>
@@ -701,8 +841,7 @@ function Quiz() {
 
   const question = safeQuestions[currentQuestion];
 
-  const isLastQuestion =
-    currentQuestion === safeQuestions.length - 1;
+  const isLastQuestion = currentQuestion === safeQuestions.length - 1;
 
   return (
     <div>
@@ -712,9 +851,9 @@ function Quiz() {
         <div>
           <p style={styles.quizLabel}>QUIZ</p>
 
-          <h1 style={styles.quizTitle}>
-            {selectedSubject}
-          </h1>
+          <h1 style={styles.quizTitle}>{selectedSubject}</h1>
+
+          <p style={styles.quizUnit}>{selectedUnit}</p>
         </div>
 
         <div style={styles.questionCounter}>
@@ -728,11 +867,7 @@ function Quiz() {
         <div
           style={{
             ...styles.progressFill,
-            width: `${
-              ((currentQuestion + 1) /
-                safeQuestions.length) *
-              100
-            }%`,
+            width: `${((currentQuestion + 1) / safeQuestions.length) * 100}%`,
           }}
         />
       </div>
@@ -744,16 +879,13 @@ function Quiz() {
           Question {currentQuestion + 1}
         </span>
 
-        <h2 style={styles.questionText}>
-          {question.question}
-        </h2>
+        <h2 style={styles.questionText}>{question.question}</h2>
 
         {/* Options */}
 
         <div style={styles.options}>
           {question.options.map((option, index) => {
-            const selected =
-              selectedAnswer === index;
+            const selected = selectedAnswer === index;
 
             return (
               <button
@@ -762,29 +894,25 @@ function Quiz() {
                 disabled={submitting}
                 style={{
                   ...styles.option,
-                  border: selected
-                    ? "1px solid #8B5CF6"
-                    : "1px solid #334155",
-                  background: selected
-                    ? "#312E81"
-                    : "#020617",
+
+                  border: selected ? "1px solid #8B5CF6" : "1px solid #334155",
+
+                  background: selected ? "#312E81" : "#020617",
+
                   opacity: submitting ? 0.7 : 1,
                 }}
               >
                 <span
                   style={{
                     ...styles.optionNumber,
-                    background: selected
-                      ? "#8B5CF6"
-                      : "#1E293B",
+
+                    background: selected ? "#8B5CF6" : "#1E293B",
                   }}
                 >
                   {String.fromCharCode(65 + index)}
                 </span>
 
-                <span style={styles.optionText}>
-                  {option}
-                </span>
+                <span style={styles.optionText}>{option}</span>
               </button>
             );
           })}
@@ -798,10 +926,8 @@ function Quiz() {
             disabled={currentQuestion === 0 || submitting}
             style={{
               ...styles.previousButton,
-              opacity:
-                currentQuestion === 0 || submitting
-                  ? 0.4
-                  : 1,
+
+              opacity: currentQuestion === 0 || submitting ? 0.4 : 1,
             }}
           >
             <FaArrowLeft />
@@ -827,6 +953,7 @@ function Quiz() {
               }}
             >
               {submitting ? "Submitting..." : "Submit Quiz"}
+
               {!submitting && <FaCheckCircle />}
             </button>
           )}
@@ -847,10 +974,10 @@ function Quiz() {
             disabled={submitting}
             style={{
               ...styles.indicator,
+
               background:
-                answers[item.id] !== undefined
-                  ? "#8B5CF6"
-                  : "#1E293B",
+                answers[item.id] !== undefined ? "#8B5CF6" : "#1E293B",
+
               border:
                 currentQuestion === index
                   ? "1px solid #A78BFA"
@@ -862,11 +989,7 @@ function Quiz() {
         ))}
       </div>
 
-      {error && (
-        <p style={styles.inlineError}>
-          {error}
-        </p>
-      )}
+      {error && <p style={styles.inlineError}>{error}</p>}
 
       <style>
         {`
@@ -910,6 +1033,10 @@ function Quiz() {
     </div>
   );
 }
+
+// ============================================================
+// STYLES
+// ============================================================
 
 const styles = {
   startPage: {
@@ -981,8 +1108,7 @@ const styles = {
 
   quizInfo: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: "10px",
     margin: "25px 0",
   },
@@ -1008,6 +1134,13 @@ const styles = {
     fontWeight: "700",
   },
 
+  selectionError: {
+    color: "#F87171",
+    fontSize: "12px",
+    textAlign: "left",
+    marginTop: "10px",
+  },
+
   quizHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -1026,6 +1159,12 @@ const styles = {
     color: "#FFFFFF",
     fontSize: "26px",
     margin: "5px 0 0",
+  },
+
+  quizUnit: {
+    color: "#94A3B8",
+    fontSize: "12px",
+    margin: "4px 0 0",
   },
 
   questionCounter: {
@@ -1209,6 +1348,13 @@ const styles = {
   resultSubject: {
     color: "#A78BFA",
     fontSize: "13px",
+    marginBottom: "3px",
+  },
+
+  resultUnit: {
+    color: "#94A3B8",
+    fontSize: "12px",
+    margin: 0,
   },
 
   scoreCircle: {
@@ -1223,10 +1369,21 @@ const styles = {
     justifyContent: "center",
   },
 
+  resultScoreInner: {
+    color: "#FFFFFF",
+    width: "112px",
+    height: "112px",
+    borderRadius: "50%",
+    background: "#1E293B",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   scoreDetails: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: "10px",
   },
 
@@ -1260,95 +1417,79 @@ const styles = {
     padding: "11px",
     cursor: "pointer",
   },
-};
-// Additional styles used by the backend-connected quiz.
-styles.loadingPage = {
-  minHeight: "400px",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-};
 
-styles.loadingSpinner = {
-  color: "#8B5CF6",
-  fontSize: "30px",
-  animation: "quizSpin 1s linear infinite",
-};
+  loadingPage: {
+    minHeight: "400px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+  },
 
-styles.loadingTitle = {
-  color: "#FFFFFF",
-  margin: "15px 0 5px",
-};
+  loadingSpinner: {
+    color: "#8B5CF6",
+    fontSize: "30px",
+    animation: "quizSpin 1s linear infinite",
+  },
 
-styles.loadingText = {
-  color: "#64748B",
-  margin: 0,
-};
+  loadingTitle: {
+    color: "#FFFFFF",
+    margin: "15px 0 5px",
+  },
 
-styles.errorPage = {
-  minHeight: "400px",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  padding: "20px",
-  boxSizing: "border-box",
-};
+  loadingText: {
+    color: "#64748B",
+    margin: 0,
+  },
 
-styles.errorIcon = {
-  color: "#EF4444",
-  fontSize: "40px",
-};
+  errorPage: {
+    minHeight: "400px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    padding: "20px",
+    boxSizing: "border-box",
+  },
 
-styles.errorTitle = {
-  color: "#FFFFFF",
-  margin: "15px 0 8px",
-};
+  errorIcon: {
+    color: "#EF4444",
+    fontSize: "40px",
+  },
 
-styles.errorText = {
-  color: "#64748B",
-  maxWidth: "450px",
-  lineHeight: "1.6",
-};
+  errorTitle: {
+    color: "#FFFFFF",
+    margin: "15px 0 8px",
+  },
 
-styles.retryButton = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  background: "#8B5CF6",
-  color: "#FFFFFF",
-  border: "none",
-  borderRadius: "10px",
-  padding: "12px 18px",
-  cursor: "pointer",
-  fontWeight: "600",
-  marginTop: "12px",
-};
+  errorText: {
+    color: "#64748B",
+    maxWidth: "450px",
+    lineHeight: "1.6",
+  },
 
-styles.resultScoreInner = {
-  color: "#FFFFFF",
-  width: "112px",
-  height: "112px",
-  borderRadius: "50%",
-  background: "#1E293B",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-};
+  retryButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    background: "#8B5CF6",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "10px",
+    padding: "12px 18px",
+    cursor: "pointer",
+    fontWeight: "600",
+    marginTop: "12px",
+  },
 
-styles.resultScoreInnerStrong = {
-  color: "#FFFFFF",
-};
-
-styles.inlineError = {
-  color: "#F87171",
-  textAlign: "center",
-  fontSize: "13px",
-  marginTop: "15px",
+  inlineError: {
+    color: "#F87171",
+    textAlign: "center",
+    fontSize: "13px",
+    marginTop: "15px",
+  },
 };
 
 export default Quiz;
